@@ -1,0 +1,21 @@
+{
+  "name": "connectrpc-tauri-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "examples/greet-app"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @connectrpc-tauri/transport",
+    "generate": "buf generate",
+    "test": "vitest run",
+    "typecheck": "tsc --build"
+  },
+  "devDependencies": {
+    "@bufbuild/protoc-gen-es": "^2.14.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "packageManager": "npm@11.17.0"
+}

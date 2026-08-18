@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package greet.v1;
+
+// Exercises all four ConnectRPC method kinds over the Tauri IPC transport.
+service GreetService {
+  // Unary.
+  rpc Greet(GreetRequest) returns (GreetResponse);
+
+  // Server streaming: one greeting per requested count.
+  rpc GreetMany(GreetManyRequest) returns (stream GreetResponse);
+
+  // Client streaming: collects names, responds once.
+  rpc GreetAll(stream GreetRequest) returns (GreetResponse);
+
+  // Bidi streaming: one response per request, interleaved.
+  rpc GreetChat(stream GreetRequest) returns (stream GreetResponse);
+}
+
+message GreetRequest {
+  string name = 1;
+}
+
+message GreetManyRequest {
+  string name = 1;
+  // Number of greetings to stream back.
+  uint32 count = 2;
+}
+
+message GreetResponse {
+  string greeting = 1;
+}

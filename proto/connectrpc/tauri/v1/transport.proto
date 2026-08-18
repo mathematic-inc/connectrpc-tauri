@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package connectrpc.tauri.v1;
+
+// Wire types for the ConnectRPC-over-Tauri-IPC transport.
+//
+// Tauri's IPC payload is *either* raw bytes or JSON, never both: the webview
+// serializes an ArrayBuffer as `application/octet-stream` and anything else as
+// JSON, and a JSON payload encodes bytes as a number array (one JSON number per
+// byte). Encoding these envelopes as protobuf keeps every frame a single raw
+// buffer, so Connect message bytes stay binary end to end.
+
+// A header or trailer entry. Repeated entries with the same name are allowed,
+// matching the JS `Headers` multi-value semantics.
+message Header {
+  string name = 1;
+  string value = 2;
+}
+
+// Argument to the `connect_rpc` command: the head of an RPC.
+//
+// The first body chunk rides along in `body` so unary calls need exactly one
+// IPC round trip.
+message StartRequest {
+  // Identifies this call for the lifetime of the RPC. Allocated by the webview.
+  uint64 call_id = 1;
+
+  // Full Connect method path, e.g. `/greet.v1.GreetService/Greet`.
+  string url = 2;
+
+  // HTTP method: `POST`, or `GET` for Connect's idempotent-GET support.
+  string method = 3;
+
+  repeated Header headers = 4;
+
+  // First body chunk. Complete request body for unary and server-streaming.
+  bytes body = 5;
+
+  // Whether more body chunks follow via `connect_rpc_send`. True only for
+  // client-streaming and bidi calls.
+  bool streaming_request = 6;
+
+  // The per-call response channel, as Tauri's `__CHANNEL__:<id>` string.
+  //
+  // Tauri normally receives a channel by deserializing a JSON command
+  // argument, but a raw payload leaves no room for JSON args, so the id
+  // travels here and is resolved with `JavaScriptChannelId::from_str`.
+  //
+  // Empty for a call whose response cannot stream: the whole body then rides
+  // back in `ResponseHead.body` and no channel is created on either side.
+  string channel = 7;
+}
+
+// Argument to `connect_rpc_send`: one more request body chunk.
+message SendRequest {
+  uint64 call_id = 1;
+  bytes chunk = 2;
+  // Signals end of the request body. `chunk` is empty when set.
+  bool end_of_stream = 3;
+}
+
+// Argument to `connect_rpc_cancel`: abandon an in-flight call.
+message CancelRequest {
+  uint64 call_id = 1;
+}
+
+// Resolved value of the `connect_rpc` command.
+//
+// Returned as soon as the service produces status and headers, before the body
+// completes, so the client can stream the response.
+message ResponseHead {
+  uint32 status = 1;
+  repeated Header headers = 2;
+
+  // The complete response body, when the call asked for no channel.
+  //
+  // A unary response is one message that is ready when the head is, so sending
+  // it here costs one webview crossing instead of the three a channel needs
+  // (the invoke, plus a frame and an end marker, each its own `eval`).
+  bytes body = 3;
+}
+
+// A frame pushed over the per-call channel.
+message ResponseFrame {
+  oneof frame {
+    // Raw Connect response bytes: enveloped frames for streaming responses,
+    // the bare encoded message for unary.
+    bytes message = 1;
+
+    // HTTP trailers. Only gRPC-family responses use these; Connect's own
+    // streaming protocol carries trailers in-band in the EndStreamResponse
+    // envelope, and Connect unary carries them as `trailer-` prefixed headers.
+    Trailers trailers = 2;
+
+    // A transport-level failure after the head was already sent.
+    string error = 3;
+
+    // End of the response body.
+    //
+    // Tauri closes the channel when the Rust side drops it, but the JS
+    // `Channel` exposes no hook for that, so the end is signalled in-band.
+    End end = 4;
+  }
+}
+
+message Trailers {
+  repeated Header headers = 1;
+}
+
+message End {}

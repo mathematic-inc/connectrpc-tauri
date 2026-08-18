@@ -1,0 +1,12 @@
+version: v2
+# The demo service types, generated into the example app only.
+inputs:
+  - directory: ../../proto
+    paths:
+      - ../../proto/greet/v1/greet.proto
+plugins:
+  - local: ../../node_modules/.bin/protoc-gen-es
+    out: src/gen
+    opt:
+      - target=ts
+      - import_extension=js

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "treatConfigHintsAsErrors": true,
+  "workspaces": {
+    ".": {
+      "ignoreDependencies": ["@bufbuild/protoc-gen-es"],
+      // `buf` is pinned in mise.toml, not npm.
+      "ignoreBinaries": ["buf"]
+    }
+  },
+  "ignore": ["**/src/gen/**"]
+}
