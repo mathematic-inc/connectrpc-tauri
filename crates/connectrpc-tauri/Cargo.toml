@@ -15,6 +15,13 @@ links = "connectrpc-tauri"
 [package.metadata.docs.rs]
 all-features = true
 
+# The test drives the demo service through the test harness, so it needs both
+# features. `required-features` states that directly; a self dev-dependency
+# would do the same but reads as a dependency cycle to tooling.
+[[test]]
+name = "transport"
+required-features = ["greet-example", "testing"]
+
 [dependencies]
 buffa.workspace = true
 bytes.workspace = true
@@ -30,7 +37,6 @@ tower.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-connectrpc-tauri = { path = ".", features = ["greet-example", "testing"] }
 futures = "0.3"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 
