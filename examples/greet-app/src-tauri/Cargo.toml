@@ -1,0 +1,25 @@
+[package]
+name = "greet-app"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+buffa.workspace = true
+connectrpc.workspace = true
+connectrpc-tauri = { path = "../../../crates/connectrpc-tauri", features = ["greet-example"] }
+futures = "0.3"
+tauri = { workspace = true, features = ["wry"] }
+tokio.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[features]
+# Tauri decides between the dev server and bundled assets from this feature,
+# not from the cargo profile: without it even a release build loads `devUrl`
+# and shows a blank window when no dev server is running. `tauri build`
+# enables it by default.
+custom-protocol = ["tauri/custom-protocol"]

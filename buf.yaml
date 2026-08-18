@@ -1,0 +1,19 @@
+version: v2
+modules:
+  - path: proto
+lint:
+  use:
+    - STANDARD
+  ignore_only:
+    # `greet.v1` is the demo service. It deliberately shares one request and
+    # response across all four method kinds so the example exercises them
+    # against identical messages; per-RPC types would only add noise.
+    RPC_REQUEST_RESPONSE_UNIQUE:
+      - proto/greet/v1/greet.proto
+    RPC_REQUEST_STANDARD_NAME:
+      - proto/greet/v1/greet.proto
+    RPC_RESPONSE_STANDARD_NAME:
+      - proto/greet/v1/greet.proto
+breaking:
+  use:
+    - FILE

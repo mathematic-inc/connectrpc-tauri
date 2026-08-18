@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ConnectRPC over Tauri IPC</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>ConnectRPC over Tauri IPC</h1>
+      <p class="subtitle">
+        Every call below runs over Tauri commands and channels. No HTTP server.
+      </p>
+
+      <label class="name">
+        Name
+        <input id="name" value="World" />
+      </label>
+
+      <section class="actions">
+        <button id="run-all">Run all</button>
+        <button id="unary">Unary</button>
+        <button id="server-stream">Server stream</button>
+        <button id="client-stream">Client stream</button>
+        <button id="bidi">Bidi</button>
+        <button id="cancel" disabled>Cancel</button>
+      </section>
+
+      <output id="log" aria-live="polite"></output>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,32 @@
+[tools]
+actionlint = "1.7.12"
+buf = "1.72.0"
+ghalint = "1.5.6"
+gitleaks = "8.30.1"
+harper-cli = "2.8.0"
+hk = "1.55.0"
+jq = "1.8.2"
+lychee = "0.24.2"
+node = "24.19.0"
+oxfmt = { version = "0.63.0", depends = ["node"] }
+oxlint = "1.78.0"
+pinact = "4.1.0"
+protoc = "35.1"
+rumdl = "0.2.55"
+# Pinned so `hk` runs clippy and rustfmt from a known toolchain. Keep at or
+# above `rust-version` in Cargo.toml.
+rust = { version = "1.97.1", profile = "minimal", components = [
+  "clippy",
+  "rustfmt",
+] }
+# `actionlint` shells out to this to check `run:` blocks.
+shellcheck = "0.11.0"
+tombi = "1.4.0"
+typos = "1.49.0"
+zizmor = "1.29.0"
+"aqua:apple/pkl" = "0.32.1"
+"aqua:EmbarkStudios/cargo-deny" = { version = "0.20.2", depends = ["rust"] }
+"aqua:owenlamont/ryl" = "0.21.0"
+"npm:knip" = { version = "6.32.2", depends = ["node"] }
+"npm:sherif" = { version = "1.13.0", depends = ["node"] }
+"npm:sort-package-json" = { version = "4.0.0", depends = ["node"] }

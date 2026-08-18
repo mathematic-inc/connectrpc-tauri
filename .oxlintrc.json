@@ -1,0 +1,41 @@
+{
+  "categories": {
+    "correctness": "deny",
+    "suspicious": "deny",
+    "pedantic": "deny",
+    "perf": "deny"
+  },
+  "options": {
+    "reportUnusedDisableDirectives": "deny"
+  },
+  "rules": {
+    "curly": "deny",
+    "default-case-last": "deny",
+    "eqeqeq": ["deny", "smart"],
+    "max-lines": "allow",
+    "max-lines-per-function": "allow",
+    "no-await-in-loop": "allow",
+    "no-implicit-coercion": "deny",
+    "no-underscore-dangle": ["deny", { "allow": ["__TAURI_INTERNALS__"] }],
+    "prefer-object-has-own": "deny",
+    "typescript/consistent-type-imports": "deny",
+    "typescript/no-import-type-side-effects": "deny",
+    "unicorn/explicit-length-check": "deny",
+    "unicorn/no-abusive-eslint-disable": "deny",
+    "unicorn/prefer-add-event-listener": "allow",
+    "unicorn/prefer-includes": "deny",
+    "unicorn/prefer-number-properties": "deny",
+    "unicorn/prefer-string-starts-ends-with": "deny"
+  },
+  "overrides": [
+    {
+      // Test doubles are `async` to match the signatures they stand in for,
+      // whether or not a given case awaits anything.
+      "files": ["**/*.test.ts"],
+      "rules": {
+        "require-await": "allow"
+      }
+    }
+  ],
+  "ignorePatterns": ["**/src/gen/**", "**/dist/**"]
+}

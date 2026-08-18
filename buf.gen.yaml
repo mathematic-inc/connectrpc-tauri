@@ -1,0 +1,13 @@
+version: v2
+# `protoc-gen-es` v2 emits service descriptors alongside message types, so
+# `createClient` needs no separate Connect plugin.
+inputs:
+  - directory: proto
+    paths:
+      - proto/connectrpc/tauri/v1/transport.proto
+plugins:
+  - local: node_modules/.bin/protoc-gen-es
+    out: packages/transport/src/gen
+    opt:
+      - target=ts
+      - import_extension=js

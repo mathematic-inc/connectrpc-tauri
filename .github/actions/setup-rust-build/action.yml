@@ -1,0 +1,27 @@
+name: Setup Rust build
+description: Rust toolchain, protoc, and the system webview headers `wry` links against.
+
+inputs:
+  cache:
+    description: Restore the cargo cache. Off for release jobs, which must not
+      trust a cache that a PR build could have poisoned.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    # The example app pulls in `wry`, which links against the system webview.
+    - name: Install webview dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev
+    # mise.toml pins the Rust toolchain (with clippy and rustfmt) and protoc,
+    # and exports RUSTUP_TOOLCHAIN. It is the same toolchain `hk` runs locally,
+    # so CI and pre-commit cannot disagree about fmt or lint results.
+    - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+    - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      if: inputs.cache == 'true'
+      with:
+        cache-on-failure: true

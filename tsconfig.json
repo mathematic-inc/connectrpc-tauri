@@ -1,0 +1,4 @@
+{
+  "files": [],
+  "references": [{ "path": "packages/transport" }, { "path": "examples/greet-app" }]
+}
