@@ -150,6 +150,29 @@ async function rawStream(count: number, size: number): Promise<number> {
   return done;
 }
 
+/** Client streaming through the full Connect transport. */
+async function connectClientStream(name: string, count: number): Promise<void> {
+  async function* messages(): AsyncIterable<{ name: string }> {
+    for (let i = 0; i < count; i++) {
+      yield { name };
+    }
+  }
+  await client.greetAll(messages());
+}
+
+/**
+ * Client-streaming floor: `count` raw invokes, awaited one at a time.
+ *
+ * This is what one IPC round trip per message costs with no Connect involved,
+ * so it says whether client streaming is slow or simply paying that price.
+ */
+async function rawSerialInvokes(name: string, count: number): Promise<void> {
+  const payload = toBinary(GreetRequestSchema, create(GreetRequestSchema, { name }));
+  for (let i = 0; i < count; i++) {
+    await invoke<ArrayBuffer>("bench_raw_unary", payload);
+  }
+}
+
 /** Render the results as a table, grouped, with each group's floor as 1.00x. */
 function format(results: Result[]): string {
   const lines: string[] = ["", "ConnectRPC over Tauri IPC — benchmark", "=".repeat(64)];
@@ -208,6 +231,19 @@ export async function runBenchmark(): Promise<void> {
         connectStream(nameOfSize(size), count),
       ),
       await measure(group, "raw channel", () => rawStream(count, size)),
+    );
+  }
+
+  for (const size of [16, 4096]) {
+    const count = 100;
+    const group = `client stream, ${count} x ${size}-byte messages`;
+    results.push(
+      await measure(group, "connect (this transport)", () =>
+        connectClientStream(nameOfSize(size), count),
+      ),
+      await measure(group, "raw invoke per message", () =>
+        rawSerialInvokes(nameOfSize(size), count),
+      ),
     );
   }
 
