@@ -414,7 +414,6 @@ dependencies = [
  "bytes",
  "connectrpc",
  "connectrpc-build",
- "connectrpc-tauri",
  "futures",
  "http",
  "http-body",

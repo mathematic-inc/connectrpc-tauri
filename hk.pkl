@@ -236,7 +236,15 @@ local checks = new Mapping<String, Step> {
   ["sort-package-json"] = Builtins.sort_package_json
   ["oxfmt"] = (Builtins.oxfmt) {
     // TOML has its own formatter and package.json its own sorter.
-    exclude = List("**/*.toml", "**/package.json", "package-lock.json")
+    // The changelogs belong to Release Please, which rewrites them on every
+    // release; reformatting them here only loses the next release PR's diff.
+    exclude =
+      List(
+        "**/*.toml",
+        "**/package.json",
+        "package-lock.json",
+        "**/CHANGELOG.md",
+      )
     depends = List("oxlint", "sort-package-json")
   }
   ["jq"] = (Builtins.jq) {
