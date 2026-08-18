@@ -1,2 +1,8 @@
+# Release Please owns the changelogs and rewrites them on every release, with
+# two blank lines before each section heading that MD012 rejects. Reformatting
+# them would only be undone by the next release PR.
+[global]
+exclude = ["**/CHANGELOG.md"]
+
 [MD013]
 enabled = false
