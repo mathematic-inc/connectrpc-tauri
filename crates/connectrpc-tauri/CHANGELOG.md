@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.1...v0.1.2) (2026-08-18)
+
+
+### Features
+
+* Serve unary calls over a custom URI scheme ([b6e38cc](https://github.com/mathematic-inc/connectrpc-tauri/commit/b6e38cc1381683aaba1e3fa9779b51b026eb0f11))
+
 ## [0.1.1](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.0...v0.1.1) (2026-08-18)
 
 
