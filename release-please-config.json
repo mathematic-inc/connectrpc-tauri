@@ -14,5 +14,5 @@
       "component": "transport"
     }
   },
-  "plugins": ["sentence-case", "cargo-workspace"]
+  "plugins": ["sentence-case"]
 }
