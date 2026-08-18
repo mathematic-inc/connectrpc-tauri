@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/mathematic-inc/connectrpc-tauri/compare/transport-v0.1.0...transport-v0.1.1) (2026-08-18)
+
+
+### Performance Improvements
+
+* Coalesce streamed request chunks into one send ([76ec35e](https://github.com/mathematic-inc/connectrpc-tauri/commit/76ec35ec90650221e28284cdd62dcfde96b4bb58))
+
 ## 0.1.0 (2026-08-18)
 
 
