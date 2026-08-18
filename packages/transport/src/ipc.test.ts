@@ -256,47 +256,63 @@ describe("tauri ipc client", () => {
     expect(header.get("content-type")).toBe("application/proto");
   });
 
-  it("takes the response inline, with no channel, when marked buffered", async () => {
+  it("fetches the scheme directly, bypassing IPC, when marked buffered", async () => {
     const { BUFFERED_RESPONSE_HEADER, createTauriIpcClient } = await import("./ipc.js");
     const client = createTauriIpcClient();
 
-    // Fails the test if the client subscribes a channel: the whole point of
-    // this path is that no channel exists to send on.
-    respondToStart = async (_call) =>
-      toBinary(
-        ResponseHeadSchema,
-        create(ResponseHeadSchema, {
-          status: 200,
-          body: new Uint8Array([4, 5, 6]),
-          headers: [{ name: "content-type", value: "application/proto" } as never],
-        }),
-      );
+    // Any IPC traffic fails the test: bypassing the command router is the
+    // entire point of this path.
+    respondToStart = async () => {
+      throw new Error("buffered call must not touch IPC");
+    };
+
+    let fetched: { url: string; method: string; body: Uint8Array } | undefined;
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      fetched = {
+        url,
+        method: init.method as string,
+        body: new Uint8Array(init.body as ArrayBuffer),
+      };
+      return new Response(new Uint8Array([4, 5, 6]), {
+        status: 200,
+        headers: { "content-type": "application/proto" },
+      });
+    }) as typeof fetch;
 
     const header = new Headers();
     header.set(BUFFERED_RESPONSE_HEADER, "1");
 
-    const response = await client({
-      url: "tauri://ipc/pkg.Service/Method",
-      method: "POST",
-      header,
-      body: (async function* () {
-        yield new Uint8Array([1, 2, 3]);
-      })(),
-    });
+    try {
+      const response = await client({
+        url: "ipc-connect://localhost/pkg.Service/Method",
+        method: "POST",
+        header,
+        body: (async function* () {
+          yield new Uint8Array([1, 2, 3]);
+        })(),
+      });
 
-    const received: number[] = [];
-    for await (const chunk of response.body) {
-      received.push(...chunk);
+      const received: number[] = [];
+      for await (const chunk of response.body) {
+        received.push(...chunk);
+      }
+
+      expect(response.status).toBe(200);
+      expect(received).toEqual([4, 5, 6]);
+      expect(response.header.get("content-type")).toBe("application/proto");
+      // The marker must not reach the service.
+      expect(header.has(BUFFERED_RESPONSE_HEADER)).toBe(false);
+
+      // The full URL is fetched, not just a path: the scheme handler routes on it.
+      expect(fetched?.url).toBe("ipc-connect://localhost/pkg.Service/Method");
+      expect(fetched?.method).toBe("POST");
+      expect(fetched?.body).toEqual(new Uint8Array([1, 2, 3]));
+      // No IPC call was ever registered.
+      expect(calls.size).toBe(0);
+    } finally {
+      globalThis.fetch = realFetch;
     }
-
-    expect(response.status).toBe(200);
-    expect(received).toEqual([4, 5, 6]);
-    expect(response.header.get("content-type")).toBe("application/proto");
-    // The marker must not reach the service.
-    expect(header.has(BUFFERED_RESPONSE_HEADER)).toBe(false);
-
-    const call = [...calls.values()][0];
-    expect(call?.chunks).toEqual([new Uint8Array([1, 2, 3])]);
   });
 
   it("cancels the call when the signal aborts", async () => {

@@ -68,13 +68,14 @@ a mismatch is rejected at the ACL layer before any command runs.
 
 ## How it maps onto IPC
 
-Three commands and one channel per call:
+Unary calls bypass Tauri's IPC entirely. Everything else uses three commands
+and one channel per call:
 
 | Connect concept                     | Tauri mechanism                                          |
 | ----------------------------------- | -------------------------------------------------------- |
+| Unary request and response          | `fetch("ipc-connect://…")`, a custom URI scheme          |
 | Request head + first body chunk     | `invoke("connect_rpc", …)` with a protobuf `ArrayBuffer` |
 | Response head (status + headers)    | Resolved value of that `invoke`                          |
-| Unary response body                 | Resolved value of that `invoke`, no channel              |
 | Streaming response body frames      | `Channel<InvokeResponseBody>` carrying raw protobuf      |
 | Client-stream / bidi request frames | `invoke("connect_rpc_send", …)`                          |
 | Cancellation                        | `invoke("connect_rpc_cancel", …)`, from `AbortSignal`    |
@@ -157,20 +158,23 @@ On an M-series mac, release build:
 
 | Case                          | This transport | Best raw baseline |
 | ----------------------------- | -------------- | ----------------- |
-| unary, 16-byte request        | 0.238ms        | 0.199ms (1.20x)   |
-| unary, 4KiB request           | 0.262ms        | 0.227ms (1.16x)   |
-| unary, 64KiB request          | 0.445ms        | 0.375ms (1.19x)   |
-| server stream, 100 x 16 bytes | 0.781ms        | 1.297ms (0.60x)   |
-| server stream, 100 x 4KiB     | 3.000ms        | 7.250ms (0.41x)   |
+| unary, 16-byte request        | 0.203ms        | 0.195ms (1.04x)   |
+| unary, 4KiB request           | 0.227ms        | 0.223ms (1.02x)   |
+| unary, 64KiB request          | 0.363ms        | 0.340ms (1.07x)   |
+| server stream, 100 x 16 bytes | 0.797ms        | 1.453ms (0.55x)   |
+| server stream, 100 x 4KiB     | 2.938ms        | 7.875ms (0.37x)   |
 | client stream, 100 x 16 bytes | 1.156ms        | 19.250ms (0.06x)  |
-| client stream, 100 x 4KiB     | 2.281ms        | 21.250ms (0.11x)  |
+| client stream, 100 x 4KiB     | 2.250ms        | 21.500ms (0.10x)  |
 
 The raw baseline above is a protobuf `invoke`, the fastest way to move the
 same bytes by hand — one per message for the client-streaming rows, which is
 what a hand-written client sending a sequence would do.
 
-A unary call costs ~15-20% over a hand-written `invoke`, which buys the Connect
-protocol, generated clients, interceptors, and error mapping.
+A unary call is within a few percent of a hand-written `invoke` — it no longer
+goes through Tauri's IPC at all. Unary requests are a plain `fetch` against the
+`ipc-connect://` scheme the plugin registers, which skips the command router,
+the ACL check, and the protobuf envelope. See
+[Unary skips IPC entirely](#unary-skips-ipc-entirely).
 
 Both streaming directions come out ahead of hand-written IPC because neither
 pays a webview crossing per message: responses arrive as `http_body` chunks
@@ -231,41 +235,38 @@ still leaves immediately and alone. That is what keeps bidi interactive: a
 batching window measured in time would deadlock a conversation where the next
 request depends on the last response.
 
-### Why unary skips the channel
+### Unary skips IPC entirely
 
-Tauri delivers each channel frame by evaluating JavaScript in the webview, and
-a payload under 1KiB is serialized as a JSON number array to do it — one JSON
-number per byte. Routing a unary response over a channel therefore cost three
-webview crossings (the invoke, the message frame, the end marker) plus that
-re-encoding.
+Tauri's IPC is a command router: a request crosses the webview boundary as an
+`InvokeBody`, is matched against a command name, checked against the ACL, then
+answered. A unary Connect call needs none of that. It is already an HTTP
+request against a `tower::Service`, and the webview already speaks HTTP.
 
-A unary response is a single message that is complete at the moment the head
-is, so it now rides back on the `connect_rpc` invoke itself, in
-`ResponseHead.body`, and no channel is created. That is one crossing instead of
-three, and it took unary from ~1.9x the raw baseline to ~1.15x. Streaming calls
-still use the channel, because their whole point is that the body is not ready
-yet.
+So the plugin registers its own URI scheme, `ipc-connect://`, and unary calls
+go out as a plain `fetch`. Tauri's webview manager checks whether a scheme is
+already registered before installing its own handler, so this coexists with
+`ipc://` rather than replacing it — every stock plugin keeps working.
 
-### Where the rest of a unary call goes
+What that removes from a unary call: the protobuf envelope and its
+encode/decode, the command-name dispatch, the ACL permission lookup, the call
+registry, and the channel. What is left is close to an identity mapping —
+`http::Request` in, service, `http::Response` out — which is why unary now
+lands within a few percent of a hand-written `invoke` rather than 15-20% above
+it.
 
-Measured on a quiet machine, a 16-byte unary call splits roughly:
+Streaming keeps the command-and-channel path. A scheme responder is one-shot on
+every platform: it takes a complete response by value, and underneath it
+WKWebView does `didReceiveResponse` then a single `didReceiveData`, while
+WebKitGTK builds its stream from a finished buffer. Nothing can push a second
+frame, so routing a server-streaming response through the scheme would only
+deliver it once buffered whole — which is exactly what streaming exists to
+avoid.
 
-| Cost                              | Time  |
-| --------------------------------- | ----- |
-| Tauri IPC crossing (sync command) | 154µs |
-| Tauri's async-runtime hop         | +45µs |
-| Connect protocol + this transport | +43µs |
-| All webview-side per-call JS work | ~1µs  |
-
-The JS side is already spent: building the URL, flattening headers, and
-encoding the envelope sum to about a microsecond, so there is nothing there
-worth optimizing. The 154µs floor belongs to Tauri.
-
-That leaves the async hop, which is deliberately not taken. A synchronous
-command answers on the IPC thread, but `connect_rpc` awaits a tower service
-running arbitrary handler code — blocking that thread would let one slow
-handler stall every other RPC and the UI with it. Trading a fixed 45µs for an
-unbounded worst case is not a good trade, so unary stays async.
+The scheme is named `ipc-connect` rather than something like `ipc+connect`
+because on Windows and Android wry rewrites `scheme://localhost` to
+`http://scheme.localhost`, making the scheme name a hostname label. `+` is
+legal in a URI scheme but not in a hostname, so it would work on macOS and
+Linux and break on Windows.
 
 `custom-protocol` is what makes Tauri serve the bundled assets. Without it,
 every build — release included — loads `devUrl` and needs `npm run dev`
@@ -279,4 +280,8 @@ the cargo profile.
 - Compression is off by default. It spends CPU to shrink bytes on an in-process
   hop that never touches a network; the knob is exposed on both sides.
 - Android's IPC lacks `InvokeBody::Raw` and falls back to JSON number arrays. A
-  base64 fallback is not implemented.
+  base64 fallback is not implemented. This affects streaming only; unary goes
+  over the `ipc-connect://` scheme and is unaffected.
+- The unary path has been verified on macOS. The scheme registration and the
+  Windows/Android hostname rewrite are handled, but are not yet exercised in
+  CI on those platforms.

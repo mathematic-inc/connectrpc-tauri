@@ -55,12 +55,11 @@ const MAX_PENDING_BYTES = 1024 * 1024;
 export const STREAMING_REQUEST_HEADER = "x-connectrpc-tauri-streaming-request";
 
 /**
- * Marks a call whose response arrives whole, on the invoke, with no channel.
+ * Marks a call whose response arrives whole, over the `ipc-connect://` scheme.
  *
- * Set for unary methods, whose response is one message that is ready when the
- * head is. Tauri sends each channel frame by evaluating JavaScript in the
- * webview, so a channelled unary response pays three webview crossings — the
- * invoke, the message, the end marker — where this pays one.
+ * Set for unary methods, whose response is one message. Those skip Tauri's IPC
+ * entirely and go out as a plain `fetch` against a custom URI scheme, which
+ * costs no envelope encode, no command dispatch, and no ACL check.
  *
  * Like the streaming marker, this is stripped here and never reaches the
  * service.
@@ -84,7 +83,7 @@ export function createTauriIpcClient(): UniversalClientFn {
     request.header.delete(BUFFERED_RESPONSE_HEADER);
 
     if (buffered) {
-      return await unaryCall(callId, request);
+      return await unaryCall(request);
     }
 
     // The response body is written from the channel callback and read by
@@ -187,57 +186,41 @@ export function createTauriIpcClient(): UniversalClientFn {
 }
 
 /**
- * Re-yield a body, then throw if the transport failed partway through.
+ * Run a unary call over the `ipc-connect://` scheme.
  *
- * `WritableIterable` can only be closed, not failed, so a mid-stream error is
- * recorded and raised here once the buffered frames have been delivered.
+ * This never touches Tauri's IPC: no protobuf envelope, no command dispatch,
+ * no ACL lookup, no channel. The request is a plain `fetch` the webview issues
+ * against the scheme the Rust plugin registers, and the response is the
+ * service's own bytes.
+ *
+ * The body is collected rather than streamed because webview `fetch` rejects a
+ * streaming request body outright ("duplex option is required"). A unary
+ * request is exactly one enveloped message, so there is nothing to stream.
  */
-async function* once(bytes: Uint8Array): AsyncIterable<Uint8Array> {
-  yield bytes;
-}
+async function unaryCall(request: UniversalClientRequest): Promise<UniversalClientResponse> {
+  const body = await readFirstChunk(request.body);
 
-/**
- * Run a call whose whole response comes back on the invoke.
- *
- * One webview crossing instead of three: no channel is created, so Rust never
- * evaluates JavaScript to deliver the message or an end marker.
- *
- * Cancellation still works because `invoke` is a promise the caller can stop
- * awaiting; the Rust side drops the call when this future is dropped, and
- * there is no stream left half-open to tidy up.
- */
-async function unaryCall(
-  callId: bigint,
-  request: UniversalClientRequest,
-): Promise<UniversalClientResponse> {
-  const firstChunk = await readFirstChunk(request.body);
-
-  const start = create(StartRequestSchema, {
-    callId,
-    url: new URL(request.url).pathname,
+  const response = await fetch(request.url, {
     method: request.method,
-    headers: toWireHeaders(request.header),
-    body: firstChunk ?? new Uint8Array(0),
-    streamingRequest: false,
-    // Empty: the Rust side reads this as "return the body inline".
-    channel: "",
+    headers: request.header,
+    // `BodyInit` accepts a `BufferSource`, but the DOM lib types it as an
+    // `ArrayBufferView<ArrayBuffer>`, which a `Uint8Array` over a generic
+    // `ArrayBufferLike` does not satisfy. The buffer is a plain one at runtime.
+    ...(body === undefined ? {} : { body: body as BodyInit }),
+    ...(request.signal === undefined ? {} : { signal: request.signal }),
   });
 
-  if (request.signal?.aborted === true) {
-    throw new ConnectError("call cancelled", Code.Canceled);
-  }
-
-  const head = fromBinary(
-    ResponseHeadSchema,
-    new Uint8Array(await invoke<ArrayBuffer>(START, toBinary(StartRequestSchema, start))),
-  );
-
   return {
-    status: head.status,
-    header: fromWireHeaders(head.headers),
-    body: once(head.body),
+    status: response.status,
+    header: response.headers,
+    body: once(new Uint8Array(await response.arrayBuffer())),
     trailer: new Headers(),
   };
+}
+
+/** Yield a body that is already complete. */
+async function* once(bytes: Uint8Array): AsyncIterable<Uint8Array> {
+  yield bytes;
 }
 
 /**
