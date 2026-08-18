@@ -271,6 +271,44 @@ async fn client_stream_aggregates_every_message() {
     assert_eq!(greetings, vec!["Hello, Alice and Bob!".to_string()]);
 }
 
+/// Several messages arriving in one chunk must frame exactly as if they had
+/// arrived separately.
+///
+/// This is what the webview sends: the request pump coalesces whatever the
+/// producer already had into a single `connect_rpc_send`, so a chunk boundary
+/// no longer matches a message boundary. Connect's envelopes are
+/// self-delimiting, so the body reader splits them; this pins that, since a
+/// regression here would silently drop or merge messages.
+#[tokio::test]
+async fn client_stream_splits_coalesced_messages() {
+    let call = TestCall::new(service(Greeter::default()));
+    call.start_streaming_request("/greet.v1.GreetService/GreetAll")
+        .await
+        .expect("call failed");
+
+    let mut batch = Vec::new();
+    for name in ["Alice", "Bob", "Carol"] {
+        batch.extend_from_slice(&envelope(&GreetRequest {
+            name: name.into(),
+            ..Default::default()
+        }));
+    }
+    // One send carrying three messages, which is the point.
+    call.send(&batch).await;
+    call.end_request().await;
+
+    let greetings: Vec<String> = call
+        .collect_stream_messages::<GreetResponse>()
+        .await
+        .into_iter()
+        .map(|r| r.greeting)
+        .collect();
+    assert_eq!(
+        greetings,
+        vec!["Hello, Alice and Bob and Carol!".to_string()]
+    );
+}
+
 #[tokio::test]
 async fn bidi_interleaves_responses_with_requests() {
     let call = TestCall::new(service(Greeter::default()));

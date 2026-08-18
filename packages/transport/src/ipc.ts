@@ -34,6 +34,15 @@ const CANCEL = "plugin:connectrpc-tauri|connect_rpc_cancel";
 let nextCallId = 1n;
 
 /**
+ * How many request bytes may pile up while a send is in flight.
+ *
+ * Reached only when the producer outruns the IPC hop; until then the cap never
+ * binds and the pump coalesces freely. It is what keeps a fast generator from
+ * buffering an entire stream in the webview.
+ */
+const MAX_PENDING_BYTES = 1024 * 1024;
+
+/**
  * Marks a request whose body streams incrementally.
  *
  * Connect hands the byte-level client an opaque body iterable and never says
@@ -264,26 +273,97 @@ async function readFirstChunk(
   return first.done === true ? undefined : first.value;
 }
 
-/** Forward a streaming request body, one chunk per invoke. */
+/**
+ * Forward a streaming request body, coalescing chunks that are ready together.
+ *
+ * Each invoke is a webview crossing, and awaiting one per message makes a
+ * client-streaming call cost a full round trip per message. Connect's envelopes
+ * are self-delimiting and the Rust side feeds them to an `http_body`, so
+ * several may ride in one send and be framed identically on arrival.
+ *
+ * Only chunks the producer already had are merged: the pump never waits for a
+ * chunk that has not been produced. That distinction is what keeps bidi
+ * responsive — a message whose reply the client is waiting on still leaves
+ * immediately, alone, rather than being held back for a partner that may
+ * depend on the response.
+ */
 async function pumpRequestBody(
   callId: bigint,
   body: AsyncIterable<Uint8Array>,
   signal: AbortSignal | undefined,
 ): Promise<void> {
-  for await (const chunk of body) {
+  const iterator = body[Symbol.asyncIterator]();
+  // Chunks produced while the previous send was in flight, awaiting a ride.
+  let pending: Uint8Array[] = [];
+  let pendingBytes = 0;
+  // Sends stay chained so they arrive in order and a failed one surfaces at
+  // the next await rather than becoming an unhandled rejection.
+  let inFlight: Promise<void> = Promise.resolve();
+  let sending = false;
+
+  const flush = (): void => {
+    const chunk = pending.length === 1 ? pending[0]! : concat(pending, pendingBytes);
+    pending = [];
+    pendingBytes = 0;
+    sending = true;
+    inFlight = inFlight
+      .then(async () => {
+        await invoke(
+          SEND,
+          toBinary(SendRequestSchema, create(SendRequestSchema, { callId, chunk })),
+        );
+      })
+      .then(() => {
+        sending = false;
+      });
+  };
+
+  for (;;) {
+    const next = await iterator.next();
+    if (next.done === true) {
+      break;
+    }
     if (signal?.aborted === true) {
       return;
     }
-    // Awaiting each send is the backpressure: the Rust command stays pending
-    // while the handler is not draining.
-    await invoke(SEND, toBinary(SendRequestSchema, create(SendRequestSchema, { callId, chunk })));
+    pending.push(next.value);
+    pendingBytes += next.value.length;
+
+    if (!sending) {
+      // Nothing in flight, so this goes out on its own: the first message of a
+      // bidi exchange must not wait for a partner that may depend on its reply.
+      flush();
+    } else if (pendingBytes >= MAX_PENDING_BYTES) {
+      // The producer has outrun the IPC hop. Wait for the hop rather than keep
+      // buffering; this is the backpressure.
+      await inFlight;
+      flush();
+    }
   }
+
+  if (pending.length > 0) {
+    await inFlight;
+    flush();
+  }
+  await inFlight;
+
   if (signal?.aborted !== true) {
     await invoke(
       SEND,
       toBinary(SendRequestSchema, create(SendRequestSchema, { callId, endOfStream: true })),
     );
   }
+}
+
+/** Join buffered chunks into the single body slice one send carries. */
+function concat(chunks: Uint8Array[], total: number): Uint8Array {
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return out;
 }
 
 /** Flatten `Headers` into repeated wire entries, preserving multi-values. */
