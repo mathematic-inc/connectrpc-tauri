@@ -7,12 +7,19 @@
     "crates/connectrpc-tauri": {
       "release-type": "rust",
       "changelog-path": "CHANGELOG.md",
-      "include-component-in-tag": false
+      "include-component-in-tag": false,
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/Cargo.lock",
+          "jsonpath": "$.package[?(@.name.value === 'connectrpc-tauri')].version"
+        }
+      ]
     },
     "packages/transport": {
       "release-type": "node",
       "component": "transport"
     }
   },
-  "plugins": ["sentence-case", "cargo-workspace"]
+  "plugins": ["sentence-case"]
 }
