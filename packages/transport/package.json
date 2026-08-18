@@ -1,6 +1,6 @@
 {
   "name": "@connectrpc-tauri/transport",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "ConnectRPC transport over Tauri IPC (commands + channels)",
   "keywords": [
     "tauri",
