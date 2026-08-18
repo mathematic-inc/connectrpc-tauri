@@ -1,4 +1,4 @@
 {
-  "crates/connectrpc-tauri": "0.1.0",
-  "packages/transport": "0.1.0"
+  "crates/connectrpc-tauri": "0.1.1",
+  "packages/transport": "0.1.1"
 }
