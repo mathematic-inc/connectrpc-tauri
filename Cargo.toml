@@ -1,0 +1,23 @@
+[workspace]
+resolver = "3"
+members = ["crates/connectrpc-tauri", "examples/greet-app/src-tauri"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.88"
+repository = "https://github.com/mathematic-inc/connectrpc-tauri"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+buffa = { version = "0.8.1", default-features = false, features = ["fast-utf8", "json", "std"] }
+bytes = "1"
+connectrpc = { version = "0.8.1", default-features = false, features = ["json"] }
+http = "1"
+http-body = "1"
+http-body-util = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2.11.5", default-features = false }
+tokio = { version = "1", features = ["rt", "sync"] }
+tower = "0.5"
+tracing = "0.1"

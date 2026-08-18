@@ -1,0 +1,8 @@
+# `sherif` is a tool name, not a misspelling of "sheriff".
+[default.extend-identifiers]
+Sherif = "Sherif"
+sherif = "sherif"
+
+[default.extend-words]
+Sherif = "Sherif"
+sherif = "sherif"

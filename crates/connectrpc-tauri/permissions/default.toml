@@ -1,0 +1,18 @@
+"$schema" = "schemas/schema.json"
+
+# The per-command `allow-*` / `deny-*` permissions are generated from the
+# command list in build.rs; this only groups them into a usable default.
+[default]
+description = """
+Allows the webview to make ConnectRPC calls.
+
+All three commands are needed for a working transport: `connect_rpc` starts a
+call, `connect_rpc_send` streams request messages into one, and
+`connect_rpc_cancel` abandons one. Per-RPC access control belongs in the
+services themselves, since the transport cannot tell one method from another.
+"""
+permissions = [
+  "allow-connect-rpc",
+  "allow-connect-rpc-send",
+  "allow-connect-rpc-cancel",
+]

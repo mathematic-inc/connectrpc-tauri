@@ -1,0 +1,21 @@
+{
+  "name": "greet-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.14.0",
+    "@connectrpc-tauri/transport": "*",
+    "@connectrpc/connect": "^2.1.2",
+    "@tauri-apps/api": "^2.11.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "vite": "^8.0.0"
+  }
+}
