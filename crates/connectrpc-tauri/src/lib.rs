@@ -32,12 +32,14 @@ mod call;
 mod codec;
 mod plugin;
 mod registry;
+mod scheme;
 
 #[cfg(feature = "testing")]
 pub mod testing;
 
 pub use plugin::{PLUGIN_NAME, serve};
 pub use registry::CallId;
+pub use scheme::SCHEME;
 
 /// Generated wire types for the transport envelopes.
 ///
