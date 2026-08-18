@@ -8,16 +8,22 @@ import type {
 } from "@bufbuild/protobuf";
 import type { Interceptor, Transport } from "@connectrpc/connect";
 import { createTransport } from "@connectrpc/connect/protocol-connect";
+import { convertFileSrc } from "@tauri-apps/api/core";
 
 import { BUFFERED_RESPONSE_HEADER, STREAMING_REQUEST_HEADER, createTauriIpcClient } from "./ipc.js";
 
 /**
- * Placeholder origin for the Connect protocol layer.
+ * Origin of the `ipc-connect://` scheme the Rust plugin registers.
  *
- * Connect builds `<baseUrl>/<package>.<Service>/<Method>` and hands it to the
- * client; nothing resolves this host, and the Rust side routes on the path.
+ * Unlike the old placeholder, this URL is really fetched: unary calls go
+ * straight at the scheme handler. The origin differs by platform — Windows and
+ * Android rewrite `scheme://localhost` to `http://scheme.localhost` — and
+ * `convertFileSrc` is the mapping Tauri itself uses, so asking it for the
+ * empty path yields the right origin everywhere without duplicating the rule.
+ *
+ * Streaming calls still travel over IPC commands, where only the path is read.
  */
-const IPC_BASE_URL = "tauri://ipc";
+const IPC_BASE_URL = convertFileSrc("", "ipc-connect").replace(/\/$/u, "");
 
 export interface TauriTransportOptions {
   /**

@@ -10,7 +10,7 @@ use tauri::{
     plugin::TauriPlugin,
 };
 
-use crate::{call, codec, registry::CallRegistry, wire};
+use crate::{call, codec, registry::CallRegistry, scheme, wire};
 
 /// Name under which the plugin registers. The webview addresses commands as
 /// `plugin:connectrpc-tauri|connect_rpc`.
@@ -50,7 +50,11 @@ pub(crate) struct TransportState {
 ///     .run(tauri::generate_context!())?;
 /// ```
 pub fn serve<R: Runtime, D: Dispatcher>(service: ConnectRpcService<D>) -> TauriPlugin<R> {
-    tauri::plugin::Builder::new(PLUGIN_NAME)
+    let builder = tauri::plugin::Builder::new(PLUGIN_NAME);
+    // Unary calls take the `ipc-connect://` scheme instead of a command; the
+    // commands below still carry every streaming kind.
+    let builder = scheme::register(builder, service.clone());
+    builder
         .setup(move |app, _api| {
             let state = TransportState {
                 calls: Arc::new(CallRegistry::default()),
