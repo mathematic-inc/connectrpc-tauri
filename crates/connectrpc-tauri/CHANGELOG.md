@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.3](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.2...v0.1.3) (2026-08-23)
+
+
+### Features
+
+* Connectrpc transport over tauri ipc ([fc9a743](https://github.com/mathematic-inc/connectrpc-tauri/commit/fc9a743ecd9b04ae129ed5da1d00ddb77aa4a80f))
+* Serve unary calls over a custom URI scheme ([e05974c](https://github.com/mathematic-inc/connectrpc-tauri/commit/e05974cb9d2516da2430ee80e4e4faed75865ece))
+
+
+### Bug Fixes
+
+* Unblock release pull requests in hk and release-please ([77346ff](https://github.com/mathematic-inc/connectrpc-tauri/commit/77346ff394c55eb52a5c043d8b9004b3f18ea4e3))
+
+
+### Performance Improvements
+
+* Coalesce streamed request chunks into one send ([e46f77d](https://github.com/mathematic-inc/connectrpc-tauri/commit/e46f77de9c6b739d00350736298733e893d4e6ce))
+
 ## [0.1.2](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.1...v0.1.2) (2026-08-18)
 
 
