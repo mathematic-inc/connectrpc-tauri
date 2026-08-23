@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.2...v0.1.3) (2026-08-23)
+
+
+### Features
+
+* Support deferred dispatcher setup ([#5](https://github.com/mathematic-inc/connectrpc-tauri/issues/5)) ([852897b](https://github.com/mathematic-inc/connectrpc-tauri/commit/852897bbc0e30060c972f679834c14bbde777c0c))
+
 ## [0.1.2](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.1...v0.1.2) (2026-08-18)
 
 
