@@ -18,6 +18,7 @@ use connectrpc::{
     ServiceStream,
 };
 use connectrpc_tauri::{
+    DeferredDispatcher,
     greet::{GreetManyRequest, GreetRequest, GreetResponse, GreetService, GreetServiceExt},
     testing::TestCall,
     wire,
@@ -108,6 +109,38 @@ impl GreetService for Greeter {
 
 fn service(greeter: Greeter) -> ConnectRpcService<Router> {
     ConnectRpcService::new(Arc::new(greeter).register(Router::new()))
+}
+
+#[tokio::test]
+async fn deferred_dispatcher_forwards_after_initialization() {
+    let deferred = DeferredDispatcher::new();
+    let clone = deferred.clone();
+    assert!(deferred.same_dispatcher(&clone));
+
+    let before = TestCall::new(ConnectRpcService::new(clone));
+    let head = before
+        .start("/greet.v1.GreetService/Greet", &[])
+        .await
+        .expect("call failed");
+    assert_eq!(head.status, 404);
+
+    let router = Arc::new(Greeter::default()).register(Router::new());
+    assert!(deferred.set(router).is_ok());
+    assert!(deferred.set(Router::new()).is_err());
+
+    let after = TestCall::new(ConnectRpcService::new(deferred));
+    let head = after
+        .start(
+            "/greet.v1.GreetService/Greet",
+            &GreetRequest {
+                name: "World".into(),
+                ..Default::default()
+            }
+            .encode_to_vec(),
+        )
+        .await
+        .expect("call failed");
+    assert_eq!(head.status, 200);
 }
 
 /// Encode a Connect enveloped frame: 5-byte header then payload.

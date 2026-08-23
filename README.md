@@ -41,6 +41,23 @@ tauri::Builder::default()
     .expect("failed to run app");
 ```
 
+If the router depends on state created during Tauri setup, register a deferred
+dispatcher first and initialize it in the setup hook:
+
+```rust
+let deferred = connectrpc_tauri::DeferredDispatcher::new();
+
+tauri::Builder::default()
+    .plugin(connectrpc_tauri::serve(ConnectRpcService::new(deferred.clone())))
+    .setup(move |app| {
+        let router = router_from_app(app.handle());
+        assert!(deferred.set(router).is_ok(), "ConnectRPC router initialized twice");
+        Ok(())
+    })
+    .run(tauri::generate_context!())
+    .expect("failed to run app");
+```
+
 TypeScript:
 
 ```ts
