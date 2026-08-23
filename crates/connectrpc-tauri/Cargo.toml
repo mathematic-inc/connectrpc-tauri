@@ -1,6 +1,6 @@
 [package]
 name = "connectrpc-tauri"
-version = "0.1.2"
+version = "0.1.3"
 edition.workspace = true
 rust-version.workspace = true
 description = "ConnectRPC transport over Tauri IPC (commands + channels)"
