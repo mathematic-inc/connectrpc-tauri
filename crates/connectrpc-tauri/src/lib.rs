@@ -30,6 +30,7 @@
 mod body;
 mod call;
 mod codec;
+mod deferred;
 mod plugin;
 mod registry;
 mod scheme;
@@ -37,6 +38,7 @@ mod scheme;
 #[cfg(feature = "testing")]
 pub mod testing;
 
+pub use deferred::DeferredDispatcher;
 pub use plugin::{PLUGIN_NAME, serve};
 pub use registry::CallId;
 pub use scheme::SCHEME;
