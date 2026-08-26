@@ -302,3 +302,18 @@ the cargo profile.
 - The unary path has been verified on macOS. The scheme registration and the
   Windows/Android hostname rewrite are handled, but are not yet exercised in
   CI on those platforms.
+
+## Contributing
+
+Start with a
+[Discussion](https://github.com/mathematic-inc/connectrpc-tauri/discussions/new),
+not a pull request. A Mathematic maintainer will review the proposal. If we
+decide to implement it, a maintainer or one of our AI agents will open the pull
+request. GitHub restricts pull request creation to Mathematic maintainers and
+repository collaborators with write, maintain, or admin access, plus authorized
+maintenance agents.
+
+When Mathematic implements a proposal, the implementation pull request will
+link to the Discussion and credit the proposal's original author.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full policy.
