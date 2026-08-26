@@ -305,10 +305,12 @@ the cargo profile.
 
 ## Contributing
 
-Start with a [Discussion](../../discussions/new), not a pull request. A
-Mathematic maintainer will review the proposal. If we decide to implement it, a
-maintainer or one of our AI agents will open the pull request. GitHub restricts
-pull request creation to Mathematic maintainers and repository collaborators
-with write, maintain, or admin access, plus authorized maintenance agents.
+Start with a
+[Discussion](https://github.com/mathematic-inc/connectrpc-tauri/discussions/new),
+not a pull request. A Mathematic maintainer will review the proposal. If we
+decide to implement it, a maintainer or one of our AI agents will open the pull
+request. GitHub restricts pull request creation to Mathematic maintainers and
+repository collaborators with write, maintain, or admin access, plus authorized
+maintenance agents.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full policy.
