@@ -302,3 +302,13 @@ the cargo profile.
 - The unary path has been verified on macOS. The scheme registration and the
   Windows/Android hostname rewrite are handled, but are not yet exercised in
   CI on those platforms.
+
+## Contributing
+
+Start with a [Discussion](../../discussions/new), not a pull request. A
+Mathematic maintainer will review the proposal. If we decide to implement it, a
+maintainer or one of our AI agents will open the pull request. Only Mathematic
+organization owners and members, repository collaborators, Renovate, and
+Dependabot may open pull requests; other pull requests close automatically.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full policy.
