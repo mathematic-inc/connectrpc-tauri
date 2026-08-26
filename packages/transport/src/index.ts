@@ -23,7 +23,7 @@ import { BUFFERED_RESPONSE_HEADER, STREAMING_REQUEST_HEADER, createTauriIpcClien
  *
  * Streaming calls still travel over IPC commands, where only the path is read.
  */
-const IPC_BASE_URL = convertFileSrc("", "ipc-connect").replace(/\/$/u, "");
+const IPC_BASE_URL = convertFileSrc("", "ipc-connect").replace(/\/$/v, "");
 
 export interface TauriTransportOptions {
   /**

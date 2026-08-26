@@ -6,8 +6,8 @@
 // which a Rust-only benchmark never pays.
 
 import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
-import { createClient } from "@connectrpc/connect";
 import { createTauriTransport } from "@connectrpc-tauri/transport";
+import { createClient } from "@connectrpc/connect";
 import { Channel, invoke } from "@tauri-apps/api/core";
 
 import { GreetRequestSchema, GreetResponseSchema, GreetService } from "./gen/greet/v1/greet_pb.js";

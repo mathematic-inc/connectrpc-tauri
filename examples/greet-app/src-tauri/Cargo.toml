@@ -9,7 +9,7 @@ publish = false
 [dependencies]
 buffa.workspace = true
 connectrpc.workspace = true
-connectrpc-tauri = { path = "../../../crates/connectrpc-tauri", features = ["greet-example"] }
+connectrpc-tauri = { path = "../../../crates/connectrpc-tauri", version = "0.1.3", features = ["greet-example"] }
 futures = "0.3"
 tauri = { workspace = true, features = ["wry"] }
 tokio.workspace = true

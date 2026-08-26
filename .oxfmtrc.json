@@ -1,4 +1,14 @@
 {
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/gen/**",
+    "**/generated/**",
+    "**/permissions/**",
+    "**/*.toml",
+    "**/CHANGELOG.md"
+  ],
   "semi": true,
-  "singleQuote": false
+  "singleQuote": false,
+  "sortImports": true,
+  "sortPackageJson": false
 }

@@ -1,16 +1,43 @@
-amends "package://github.com/jdx/hk/releases/download/v1.55.0/hk@1.55.0#/Config.pkl"
+amends "package://github.com/jdx/hk/releases/download/v1.56.1/hk@1.56.1#/Config.pkl"
 
-import "package://github.com/jdx/hk/releases/download/v1.55.0/hk@1.55.0#/Builtins.pkl"
-import "package://github.com/jdx/hk/releases/download/v1.55.0/hk@1.55.0#/builtins/test/helpers.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.56.1/hk@1.56.1#/Builtins.pkl"
 
-// Generated code is committed so consumers get bindings without running
-// codegen, but it is not ours to format or lint. `src/gen` comes from
-// `buf generate` and `permissions/` from Tauri's build script, which emits
-// its schema without a trailing newline. Excluded globally rather than
-// per-step so no formatter rewrites a file its generator will overwrite.
-exclude = List("**/src/gen/**", "crates/*/permissions/**")
+min_hk_version = "1.56.1"
+hide_warnings = List("missing-profiles")
 
-// Files that can change what `npm run typecheck`/`test`/`build` produce.
+local generatedFiles =
+  List(
+    "**/dist/**",
+    "**/gen/**",
+    "**/generated/**",
+    "**/src/gen/**",
+    "**/node_modules/**",
+    "**/permissions/**",
+    "**/target/**",
+    "**/vendor/**",
+  )
+
+local javascriptFiles =
+  List(
+    "**/*.astro",
+    "**/*.cjs",
+    "**/*.css",
+    "**/*.graphql",
+    "**/*.hbs",
+    "**/*.html",
+    "**/*.js",
+    "**/*.jsx",
+    "**/*.mjs",
+    "**/*.mts",
+    "**/*.scss",
+    "**/*.svelte",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.vue",
+  )
+
+local rustFiles = List("Cargo.toml", "Cargo.lock", "**/Cargo.toml", "**/*.rs")
+local goFiles = List("go.mod", "go.sum", "**/*.go")
 local nodeFiles =
   List(
     "package.json",
@@ -20,72 +47,80 @@ local nodeFiles =
     "packages/*/**",
     "examples/*/**",
   )
+local slow = List("slow")
 
 local checks = new Mapping<String, Step> {
+  // Repository hygiene.
   ["bom"] = Builtins.byte_order_marker
   ["case-conflicts"] = Builtins.check_case_conflict
   ["executables-have-shebangs"] = Builtins.check_executables_have_shebangs
-  ["large-files"] = Builtins.check_added_large_files
+  ["large-files"] = (Builtins.check_added_large_files) {
+    exclude = generatedFiles
+  }
   ["merge-conflicts"] = Builtins.check_merge_conflict
   ["mixed-line-endings"] = Builtins.mixed_line_ending
-  ["newlines"] = Builtins.newlines
+  ["newlines"] = (Builtins.newlines) {
+    exclude = generatedFiles
+  }
   ["private-keys"] = Builtins.detect_private_key
   ["symlinks"] = Builtins.check_symlinks
-  ["trailing-whitespace"] = Builtins.trailing_whitespace
-  ["gitleaks"] = (Builtins.gitleaks) {
-    // `gitleaks dir` walks the tree it is pointed at, including gitignored
-    // build output, which turns `target/` artifacts into false positives.
-    // Scanning git instead sees only what is committed or staged.
-    check =
-      "gitleaks git --redact --verbose --no-banner --timeout 60 --log-opts=--all . && gitleaks git --redact --verbose --no-banner --pre-commit --staged ."
-    tests = new Mapping<String, StepTest> {
-      local const testMaker = new helpers.TestMaker {
-        filename = "foo.txt"
-        before =
-          "git init -q && git add . && git -c user.name=hk -c user.email=hk@example.com commit -qm test"
-      }
-      local const bad = "awsToken = " + "AKIA" + "LALEMEL33243OLIA"
-      ["check bad file"] = testMaker.checkFail(bad, 1)
-      ["check good file"] = testMaker.checkPass("message = foobar")
-    }
+  ["trailing-whitespace"] = (Builtins.trailing_whitespace) {
+    exclude = generatedFiles
   }
-  ["typos"] = Builtins.typos
+  ["typos-dictionary"] {
+    glob = "typos.toml"
+    check =
+      "awk '/^\\[default\\.extend-(identifiers|words)\\]$/ { section = $0; next } /^\\[/ { section = \"\" } section != \"\" && /^[^#[:space:]]/ { key = $0; sub(/[[:space:]]*=.*/, \"\", key); print section \"\\t\" key }' {{ files }} | LC_ALL=C sort -cu"
+    fix = null
+  }
+  ["typos"] = (Builtins.typos) {
+    check = "typos --force-exclude {{ files }} || exit 1"
+    exclude = generatedFiles
+    depends = "typos-dictionary"
+  }
 
-  // Markdown and prose.
+  // Prose and links.
   ["ryl-markdown"] = (Builtins.ryl_markdown) {
+    check_diff = "ryl check --strict --diff --markdown {{ files }}"
+    fix = "ryl check --strict --fix --markdown {{ files }}"
+    exclude = generatedFiles
     depends = "typos"
   }
   ["rumdl-format"] = (Builtins.rumdl_format) {
+    exclude = generatedFiles
     depends = "ryl-markdown"
   }
   ["rumdl"] = (Builtins.rumdl) {
+    exclude = generatedFiles
     depends = "rumdl-format"
   }
   ["harper"] = (Builtins.harper) {
     types = List("markdown")
-    // The ignore list is technical-prose noise: `AnA` and `CompoundNouns`
-    // misread identifiers like `mpsc` and `hash map`, `ExpandTimeShorthands`
-    // rewrites the `ms` units in the benchmark table, and `LongSentences` is
-    // style, not correctness. `ExpandArgument` would rewrite `invoke` args,
-    // which is the Tauri API's own term.
+    exclude = generatedFiles
     check =
-      "harper-cli --no-color lint --quiet --format compact --ignore SpellCheck,UseTitleCase,SplitWords,SentenceCapitalization,OxfordComma,OrthographicConsistency,NumericRangeEnDash,MissingTo,MassNouns,DisjointPrefixes,PhrasalVerbAsCompoundNoun,ExpandControl,ExpandMemoryShorthands,WrongNegative,AnA,CompoundNouns,ExpandTimeShorthands,LongSentences,HopHope,ExpandArgument {{ files }}"
+      "harper-cli --no-color lint --quiet --format compact --ignore SpellCheck,UseTitleCase,SplitWords,SentenceCapitalization,OxfordComma,OrthographicConsistency,NumericRangeEnDash,MissingTo,MassNouns,DisjointPrefixes,PhrasalVerbAsCompoundNoun,ExpandConfiguration,ExpandControl,ExpandMemoryShorthands,WrongNegative,AnA,CompoundNouns,ExpandTimeShorthands,LongSentences,HopHope,ExpandArgument {{ files }}"
+    output_summary = "hide"
     depends = "rumdl"
   }
   ["lychee"] = (Builtins.lychee) {
     types = List("markdown", "html")
-    // `--root-dir` takes one absolute path, but a root-relative link resolves
-    // against whichever Vite root serves the file, so each workspace is
-    // checked from its own directory.
     check =
       "cd {{workspace}} && lychee --offline --no-progress --root-dir \"$PWD\" {{ workspace_files }}"
+    exclude = generatedFiles
     workspace_indicator = "package.json"
     depends = "rumdl"
   }
 
-  // Config formats.
-  ["pkl-format"] = Builtins.pkl_format
+  // Structured configuration.
+  ["pkl-format"] = (Builtins.pkl_format) {
+    shell = null
+    fix = "pkl format --write {{ files }}"
+  }
   ["pkl"] = (Builtins.pkl) {
+    check = new Script {
+      windows = "pkl eval {{ files }} >NUL"
+      other = "pkl eval {{ files }} >/dev/null"
+    }
     depends = "pkl-format"
   }
   ["tombi-format"] = (Builtins.tombi_format) {
@@ -95,208 +130,160 @@ local checks = new Mapping<String, Step> {
     depends = "tombi-format"
   }
   ["mise"] = (Builtins.mise) {
-    depends = "tombi-format"
+    check = "mise -C {{workspace}} fmt --check"
+    fix = "mise -C {{workspace}} fmt"
+    workspace_indicator = "mise.toml"
+    depends = "tombi"
+  }
+  ["yamllint"] = Builtins.yamllint
+  ["jq"] = (Builtins.jq) {
+    check = "jq empty {{ files }}"
+    check_diff = null
+    fix = null
+    exclude = "knip.json"
   }
 
   // GitHub Actions.
-  ["pinact"] = (Builtins.pinact) {
-    check_diff = "pinact run --fix=false --no-api {{ files }}"
-    tests = new Mapping<String, StepTest> {
-      local const testMaker = new helpers.TestMaker {
-        before = "pinact init"
-        filename = ".github/workflows/test.yml"
-      }
-      local const bad =
-        """
-        name: pinact test
-        on:
-          push:
-        jobs:
-          test:
-            runs-on: ubuntu-latest
-            steps:
-              - uses: actions/checkout@v6.0.1
-
-        """
-      local const good =
-        """
-        name: pinact test
-        on:
-          push:
-        jobs:
-          test:
-            runs-on: ubuntu-latest
-            steps:
-              - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
-        """
-      ["check bad file"] = testMaker.checkFail(bad, 2)
-      ["check good file"] = testMaker.checkPass(good)
-    }
-  }
-  ["zizmor"] = (Builtins.zizmor) {
-    // Fail on findings that carry a severity. `superfluous-actions` and
-    // friends are informational style advice, not security problems.
-    check_diff = "zizmor --no-progress --min-severity low {{ files }}"
-    fix = "zizmor --no-progress --min-severity low --fix {{ files }}"
-    depends = "pinact"
-    // The upstream fixtures predate this zizmor pin and trip its own
-    // `unpinned-uses` policy, so the actions here are pinned by hash.
-    tests = new Mapping<String, StepTest> {
-      local const testMaker = new helpers.TestMaker {
-        filename = ".github/workflows/action.yaml"
-      }
-      local const bad =
-        """
-        name: hk test
-        on:
-          push:
-        permissions: {}
-        jobs:
-          build:
-            runs-on: ubuntu-latest
-            steps:
-              - uses: actions/checkout/////@8e8c483db84b4bee98b60c0593521ed34d9990e8
-                with:
-                  persist-credentials: false
-
-        """
-      local const good =
-        """
-        name: hk test
-        on:
-          push:
-        permissions: {}
-        jobs:
-          build:
-            runs-on: ubuntu-latest
-            steps:
-              - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
-                with:
-                  persist-credentials: false
-
-        """
-      ["check bad file"] = testMaker.checkFail(bad, 12)
-      ["check good file"] = testMaker.checkPass(good)
-      ["fix bad file"] = testMaker.fixPass(bad, good)
-      ["fix good file"] = testMaker.fixPass(good, good)
-    }
-  }
-  ["ryl"] = (Builtins.ryl) {
-    depends = "zizmor"
-  }
-  ["actionlint"] = (Builtins.actionlint) {
-    depends = "ryl"
-  }
+  ["actionlint"] = Builtins.actionlint
   ["ghalint"] = (Builtins.ghalint_workflow) {
     depends = "actionlint"
   }
-
-  // Protobuf. The wire format is the crate's public API, so the protos are
-  // linted before anything downstream regenerates from them.
-  ["buf-format"] = Builtins.buf_format
-  ["buf-lint"] = (Builtins.buf_lint) {
-    depends = "buf-format"
+  ["pinact"] = (Builtins.pinact) {
+    check = "pinact run --fix=false --no-api {{ files }}"
+    check_diff = null
   }
-  // The committed bindings must match the protos they came from.
+  ["zizmor"] = (Builtins.zizmor) {
+    check_diff = "zizmor --no-progress --min-severity low {{ files }}"
+    fix = "zizmor --no-progress --min-severity low --fix {{ files }}"
+    depends = "pinact"
+  }
+
+  // Containers, Python, and shell.
+  ["hadolint"] = Builtins.hadolint
+  ["ruff-format"] = Builtins.ruff_format
+  ["ruff"] = (Builtins.ruff) {
+    depends = "ruff-format"
+  }
+  ["ty"] = (Builtins.ty) {
+    depends = "ruff"
+  }
+  ["python-ast"] = Builtins.python_check_ast
+  ["python-debug-statements"] = Builtins.python_debug_statements
+  ["shellharden"] = Builtins.shellharden
+  ["shellcheck"] = (Builtins.shellcheck) {
+    depends = "shellharden"
+  }
+  ["shfmt"] = (Builtins.shfmt) {
+    depends = "shellcheck"
+  }
+  ["ryl"] = (Builtins.ryl) {
+    check_diff = "ryl check --strict --diff {{ files }}"
+    fix = "ryl check --strict --fix {{ files }}"
+    exclude = generatedFiles
+  }
+
+  // JavaScript and TypeScript. TOML, YAML, Markdown, JSON package manifests,
+  // and generated sources are owned by their dedicated tools.
+  ["oxfmt"] = (Builtins.oxfmt) {
+    glob = javascriptFiles
+    exclude = generatedFiles
+  }
+  ["oxlint"] = (Builtins.ox_lint) {
+    glob = javascriptFiles
+    exclude = generatedFiles
+    depends = "oxfmt"
+  }
+  ["sort-package-json"] = Builtins.sort_package_json
   ["protobuf-bindings"] {
     glob = List("proto/**", "**/buf.gen.yaml", "**/src/gen/**")
-    // `git diff` needs real paths: a `**/src/gen` pathspec matches nothing
-    // here and would make this check pass unconditionally. Comparing the
-    // worktree against the index is the right test: pre-commit stashes
-    // unstaged edits first, so regenerating and finding a difference means
-    // the staged bindings do not match the staged protos.
     check =
       "npm run --silent generate && git diff --exit-code -- packages/transport/src/gen examples/greet-app/src/gen"
     fix = "npm run --silent generate"
     depends = "buf-lint"
   }
-
-  // JavaScript/TypeScript.
-  ["oxlint"] = (Builtins.ox_lint) {
-    depends = "protobuf-bindings"
-    // The upstream fixture relies on a rule this repo leaves at warning, so
-    // `--fix` never rewrites it. This rule is denied here and auto-fixable;
-    // the sandbox gets its own config since the repo's does not reach it.
-    tests = new Mapping<String, StepTest> {
-      local const testMaker = new helpers.TestMaker {
-        filename = "foo.ts"
-        extra_files = new Mapping<String, String> {
-          [".oxlintrc.json"] = "{\"rules\":{\"unicorn/prefer-string-starts-ends-with\":\"deny\"}}"
-        }
-      }
-      local const bad = "export const f = (s: string) => /^a/u.test(s);\n"
-      local const good = "export const f = (s: string) => s.startsWith('a');\n"
-      ["check bad file"] = testMaker.checkFail(bad, 1)
-      ["check good file"] = testMaker.checkPass(good)
-      ["fix bad file"] = testMaker.fixPass(bad, good)
-      ["fix good file"] = testMaker.fixPass(good, good)
-    }
-  }
-  ["sort-package-json"] = Builtins.sort_package_json
-  ["oxfmt"] = (Builtins.oxfmt) {
-    // TOML has its own formatter and package.json its own sorter.
-    // The changelogs belong to Release Please, which rewrites them on every
-    // release; reformatting them here only loses the next release PR's diff.
-    exclude =
-      List(
-        "**/*.toml",
-        "**/package.json",
-        "package-lock.json",
-        "**/CHANGELOG.md",
-      )
-    depends = List("oxlint", "sort-package-json")
-  }
-  ["jq"] = (Builtins.jq) {
-    check = "jq empty {{ files }}"
-    check_diff = null
-    fix = null
-    // oxlint and knip read their configs as JSONC; `jq` rejects the comments.
-    exclude = List(".oxlintrc.json", "knip.json")
-    depends = "oxfmt"
-    tests = new Mapping<String, StepTest> {
-      local const testMaker = new helpers.TestMaker { filename = "test.json" }
-      ["check bad file"] = testMaker.checkFail("{\"test\":}", 5)
-      ["check good file"] = testMaker.checkPass("{\"test\":123}")
-    }
-  }
   ["knip"] = (Builtins.knip) {
     workspace_indicator = null
     check = "knip --no-progress --treat-config-hints-as-errors"
     fix = "knip --fix --no-progress --treat-config-hints-as-errors"
-    depends = "oxfmt"
+    profiles = slow
   }
   ["sherif"] = (Builtins.sherif) {
     check = "sherif --fail-on-warnings"
     fix = "sherif --fix --no-install --fail-on-warnings"
-    depends = "knip"
+    profiles = slow
   }
   ["typecheck"] {
     glob = nodeFiles
     check = "npm run --silent typecheck"
-    depends = "oxfmt"
+    profiles = slow
   }
   ["vitest"] {
     glob = nodeFiles
     check = "npm test --silent"
     depends = "typecheck"
+    profiles = slow
+  }
+
+  // Protobuf.
+  ["buf-format"] = Builtins.buf_format
+  ["buf-lint"] = (Builtins.buf_lint) {
+    depends = "buf-format"
   }
 
   // Rust.
+  ["cargo-fmt"] = (Builtins.cargo_fmt) {
+    glob = rustFiles
+    exclude = generatedFiles
+    workspace_indicator = null
+    check = "cargo fmt --all --check"
+    fix = "cargo fmt --all"
+  }
+  ["cargo-check"] = (Builtins.cargo_check) {
+    glob = rustFiles
+    workspace_indicator = null
+    check = "cargo check --workspace --all-features --all-targets"
+    fix = null
+    profiles = slow
+  }
   ["cargo-clippy"] = (Builtins.cargo_clippy) {
-    glob = List("**/Cargo.toml", "Cargo.lock", "**/*.rs", "proto/**")
+    glob = rustFiles
     workspace_indicator = null
     check = "cargo clippy --workspace --all-features --all-targets -- -D warnings"
     fix =
       "cargo clippy --fix --workspace --all-features --all-targets --allow-dirty --allow-staged -- -D warnings"
-    check_first = true
-  }
-  ["cargo-fmt"] = (Builtins.cargo_fmt) {
-    depends = "cargo-clippy"
+    profiles = slow
   }
   ["cargo-deny"] = (Builtins.cargo_deny) {
+    glob = List("Cargo.toml", "Cargo.lock", "deny.toml", "**/Cargo.toml")
     workspace_indicator = null
     check = "cargo-deny --locked --workspace check"
+    profiles = slow
+  }
+
+  // Go.
+  ["go-fmt"] = (Builtins.go_fmt) {
+    glob = goFiles
+  }
+  ["go-mod-tidy"] = (Builtins.gomod_tidy) {
+    depends = "go-fmt"
+  }
+  ["go-vet"] = (Builtins.go_vet) {
+    depends = "go-mod-tidy"
+    profiles = slow
+  }
+
+  // Full-history and layered secret scans are kept out of the commit-time
+  // fast path but are mandatory at pre-push and in CI.
+  ["gitleaks"] = (Builtins.gitleaks) {
+    glob = "**/*"
+    check =
+      "gitleaks git --redact --verbose --no-banner --timeout 60 --log-opts=--all . && gitleaks git --redact --verbose --no-banner --pre-commit --staged ."
+    profiles = slow
+  }
+  ["kingfisher"] = (Builtins.kingfisher) {
+    glob = "**/*"
+    check = "kingfisher scan {{ files }} --no-update-check --no-validate --quiet --redact"
+    profiles = slow
   }
 }
 
@@ -310,6 +297,14 @@ hooks {
     fix = true
     stash = "git"
     steps = checks
+  }
+  ["pre-push"] {
+    steps {
+      ["checks"] {
+        glob = "**/*"
+        check = "hk check --all --slow"
+      }
+    }
   }
   ["fix"] {
     fix = true
