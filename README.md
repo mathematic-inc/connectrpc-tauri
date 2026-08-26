@@ -313,4 +313,7 @@ request. GitHub restricts pull request creation to Mathematic maintainers and
 repository collaborators with write, maintain, or admin access, plus authorized
 maintenance agents.
 
+When Mathematic implements a proposal, the implementation pull request will
+link to the Discussion and credit the proposal's original author.
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full policy.
