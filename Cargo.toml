@@ -9,9 +9,9 @@ repository = "https://github.com/mathematic-inc/connectrpc-tauri"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-buffa = { version = "0.8.1", default-features = false, features = ["fast-utf8", "json", "std"] }
+buffa = { version = "0.9.1", default-features = false, features = ["fast-utf8", "json", "std"] }
 bytes = "1"
-connectrpc = { version = "0.8.1", default-features = false, features = ["json"] }
+connectrpc = { version = "0.9.0", default-features = false, features = ["json"] }
 http = "1"
 http-body = "1"
 http-body-util = "0.1"

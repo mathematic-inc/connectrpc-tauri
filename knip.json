@@ -4,8 +4,8 @@
   "workspaces": {
     ".": {
       "ignoreDependencies": ["@bufbuild/protoc-gen-es"],
-      // `buf` is pinned in mise.toml, not npm.
-      "ignoreBinaries": ["buf"]
+      // These binaries are pinned in mise.toml, not npm.
+      "ignoreBinaries": ["buf", "hk", "oxfmt", "oxlint"]
     }
   },
   "ignore": ["**/src/gen/**"]

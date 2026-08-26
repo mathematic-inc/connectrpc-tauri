@@ -1,7 +1,7 @@
 // Exercises all four ConnectRPC method kinds over the Tauri IPC transport.
 
-import { createClient } from "@connectrpc/connect";
 import { createTauriTransport } from "@connectrpc-tauri/transport";
+import { createClient } from "@connectrpc/connect";
 import { invoke } from "@tauri-apps/api/core";
 
 import { GreetService } from "./gen/greet/v1/greet_pb.js";
@@ -258,7 +258,6 @@ if (!("__selftestStarted" in window)) {
   // to demo it; the self-test's paced streams would dominate the timings.
   // Not top-level await: that would block the rest of this module, leaving the
   // cancel button unwired until the whole self-test or benchmark finishes.
-  // oxlint-disable-next-line unicorn/prefer-top-level-await
   void invoke<boolean>("bench_mode").then(async (benching) => {
     if (benching) {
       const { runBenchmark } = await import("./bench.js");
