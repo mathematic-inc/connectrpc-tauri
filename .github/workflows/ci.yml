@@ -70,6 +70,9 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust-build
+        with:
+          # rust-cache annotates Cargo's removed package staging paths as errors.
+          cache: "false"
       # The protos live at the repo root and reach the crate by symlink, so a
       # tarball build is the only thing that proves the published crate compiles.
       - name: Verify the packaged crate builds
