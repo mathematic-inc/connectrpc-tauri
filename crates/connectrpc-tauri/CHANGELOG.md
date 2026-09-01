@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.3...v0.1.4) (2026-09-01)
+
+
+### Bug Fixes
+
+* **deps:** Publish connectrpc 0.9 requirements ([#16](https://github.com/mathematic-inc/connectrpc-tauri/issues/16)) ([33ff6b0](https://github.com/mathematic-inc/connectrpc-tauri/commit/33ff6b04cc203fc6d5a5ecea5d64dcb9e97a49f4))
+
 ## [0.1.3](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.2...v0.1.3) (2026-08-23)
 
 
