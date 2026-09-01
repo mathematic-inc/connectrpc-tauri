@@ -118,3 +118,4 @@ export const GreetService: GenService<{
   },
 }> = /*@__PURE__*/
   serviceDesc(file_greet_v1_greet, 0);
+
