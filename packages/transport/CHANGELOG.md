@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/mathematic-inc/connectrpc-tauri/compare/transport-v0.1.2...transport-v0.1.3) (2026-09-01)
+
+
+### Bug Fixes
+
+* **deps:** Update repository dependencies ([1ea25b5](https://github.com/mathematic-inc/connectrpc-tauri/commit/1ea25b5a4589a7372c8dab2480427fb6ce2e1dc3))
+
 ## [0.1.2](https://github.com/mathematic-inc/connectrpc-tauri/compare/transport-v0.1.1...transport-v0.1.2) (2026-08-18)
 
 
