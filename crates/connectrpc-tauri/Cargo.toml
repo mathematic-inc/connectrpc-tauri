@@ -23,9 +23,9 @@ name = "transport"
 required-features = ["greet-example", "testing"]
 
 [dependencies]
-buffa.workspace = true
+buffa = { version = "0.9.1", default-features = false, features = ["fast-utf8", "json", "std"] }
 bytes.workspace = true
-connectrpc.workspace = true
+connectrpc = { version = "0.9.0", default-features = false, features = ["json"] }
 http.workspace = true
 http-body.workspace = true
 http-body-util.workspace = true
