@@ -6,10 +6,11 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
+    "generate": "buf generate",
     "tauri": "tauri"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "^2.14.0",
+    "@bufbuild/protobuf": "^2.14.1",
     "@connectrpc-tauri/transport": "*",
     "@connectrpc/connect": "^2.1.2",
     "@tauri-apps/api": "^2.11.1"

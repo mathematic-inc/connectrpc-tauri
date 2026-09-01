@@ -11,14 +11,14 @@
     "check": "oxlint --deny-warnings . && oxfmt --check .",
     "fix": "oxlint --fix --deny-warnings . && oxfmt --write .",
     "format": "oxfmt --write .",
-    "generate": "buf generate",
+    "generate": "buf generate && npm run generate --workspace greet-app",
     "lint": "oxlint --deny-warnings .",
     "prepare": "if [ -z \"$CI\" ] && command -v hk >/dev/null 2>&1; then hk install; fi",
     "test": "vitest run",
     "typecheck": "tsc --build"
   },
   "devDependencies": {
-    "@bufbuild/protoc-gen-es": "^2.14.0",
+    "@bufbuild/protoc-gen-es": "^2.14.1",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
   },

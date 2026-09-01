@@ -1,8 +1,8 @@
-amends "package://github.com/jdx/hk/releases/download/v1.56.1/hk@1.56.1#/Config.pkl"
+amends "package://github.com/jdx/hk/releases/download/v1.57.0/hk@1.57.0#/Config.pkl"
 
-import "package://github.com/jdx/hk/releases/download/v1.56.1/hk@1.56.1#/Builtins.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.57.0/hk@1.57.0#/Builtins.pkl"
 
-min_hk_version = "1.56.1"
+min_hk_version = "1.57.0"
 exclude = List("**/CHANGELOG.md")
 hide_warnings = List("missing-profiles")
 
@@ -105,8 +105,8 @@ local checks = new Mapping<String, Step> {
   }
   ["lychee"] = (Builtins.lychee) {
     types = List("markdown", "html")
-    check =
-      "cd {{workspace}} && lychee --offline --no-progress --root-dir \"$PWD\" {{ workspace_files }}"
+    // The example is the only file with root-relative links.
+    check = "lychee --offline --no-progress --root-dir examples/greet-app {{ files }}"
     exclude = generatedFiles
     workspace_indicator = "package.json"
     depends = "rumdl"
@@ -131,8 +131,8 @@ local checks = new Mapping<String, Step> {
     depends = "tombi-format"
   }
   ["mise"] = (Builtins.mise) {
-    check = "mise -C {{workspace}} fmt --check"
-    fix = "mise -C {{workspace}} fmt"
+    check = "mise -C {{root}} fmt --check"
+    fix = "mise -C {{root}} fmt"
     workspace_indicator = "mise.toml"
     depends = "tombi"
   }
@@ -263,6 +263,7 @@ local checks = new Mapping<String, Step> {
   ["cargo-deny"] = (Builtins.cargo_deny) {
     glob = List("Cargo.toml", "Cargo.lock", "deny.toml", "**/Cargo.toml")
     workspace_indicator = null
+    dir = "{{root}}"
     check = "cargo-deny --locked --workspace check"
     profiles = slow
   }
@@ -272,9 +273,11 @@ local checks = new Mapping<String, Step> {
     glob = goFiles
   }
   ["go-mod-tidy"] = (Builtins.gomod_tidy) {
+    dir = "{{root}}"
     depends = "go-fmt"
   }
   ["go-vet"] = (Builtins.go_vet) {
+    dir = "{{root}}"
     depends = "go-mod-tidy"
     profiles = slow
   }
