@@ -6,6 +6,7 @@
   "packages": {
     "crates/connectrpc-tauri": {
       "release-type": "rust",
+      "component": "connectrpc-tauri",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
       "extra-files": [
