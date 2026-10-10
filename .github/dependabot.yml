@@ -24,6 +24,10 @@ updates:
 
   - package-ecosystem: npm
     directory: /
+    groups:
+      protobuf:
+        patterns:
+          - "@bufbuild/*"
     schedule:
       interval: weekly
     cooldown:
