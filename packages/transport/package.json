@@ -37,7 +37,7 @@
   "devDependencies": {
     "@bufbuild/protobuf": "^2.15.0",
     "@connectrpc/connect": "^2.2.0",
-    "@tauri-apps/api": "^2.11.1"
+    "@tauri-apps/api": "^2.12.1"
   },
   "peerDependencies": {
     "@bufbuild/protobuf": "^2.15.0",
