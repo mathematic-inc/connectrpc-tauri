@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/mathematic-inc/connectrpc-tauri/compare/transport-v0.1.3...transport-v0.1.4) (2026-10-13)
+
+
+### Bug Fixes
+
+* **transport:** Allow importing outside a Tauri webview ([#39](https://github.com/mathematic-inc/connectrpc-tauri/issues/39)) ([86c7028](https://github.com/mathematic-inc/connectrpc-tauri/commit/86c7028b9a5f13c4550994e2ecdba5c2b2aa9236))
+
 ## [0.1.3](https://github.com/mathematic-inc/connectrpc-tauri/compare/transport-v0.1.2...transport-v0.1.3) (2026-09-01)
 
 

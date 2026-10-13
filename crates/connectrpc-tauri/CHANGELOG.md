@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.4...v0.1.5) (2026-10-13)
+
+
+### Bug Fixes
+
+* Build without protoc ([#40](https://github.com/mathematic-inc/connectrpc-tauri/issues/40)) ([ca866bd](https://github.com/mathematic-inc/connectrpc-tauri/commit/ca866bd6ce308812340cd7e7a406a0ad61bb0480))
+
 ## [0.1.4](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.3...v0.1.4) (2026-09-01)
 
 
