@@ -202,6 +202,21 @@ local checks = new Mapping<String, Step> {
     fix = "npm run --silent generate"
     depends = "buf-lint"
   }
+  // The crate's bindings are checked in so building it needs no `protoc`.
+  ["rust-protobuf-bindings"] {
+    glob =
+      List(
+        "proto/**",
+        "tools/protobuf-bindings/**",
+        "crates/connectrpc-tauri/src/generated/**",
+        "Cargo.lock",
+      )
+    check =
+      "cargo run --locked --quiet -p protobuf-bindings && git diff --exit-code -- crates/connectrpc-tauri/src/generated && test -z \"$(git ls-files --others --exclude-standard -- crates/connectrpc-tauri/src/generated)\""
+    fix = "cargo run --locked --quiet -p protobuf-bindings"
+    depends = "buf-lint"
+    profiles = slow
+  }
   ["knip"] = (Builtins.knip) {
     workspace_indicator = null
     check = "knip --no-progress --treat-config-hints-as-errors"

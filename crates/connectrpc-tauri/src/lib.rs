@@ -47,9 +47,12 @@ pub use scheme::SCHEME;
 ///
 /// Public so tests and hand-written clients can build frames; the shapes are
 /// mirrored by `packages/transport` on the TypeScript side.
+///
+/// The bindings are checked in, so building the crate needs no `protoc`;
+/// `tools/protobuf-bindings` regenerates them from `proto/`.
 #[allow(clippy::match_single_binding)]
 pub mod wire {
-    include!(concat!(env!("OUT_DIR"), "/connectrpc.tauri.v1.mod.rs"));
+    include!("generated/connectrpc.tauri.v1.mod.rs");
 }
 
 /// The demo service used by the tests and the example app.
@@ -58,5 +61,5 @@ pub mod wire {
 /// transport.
 #[cfg(feature = "greet-example")]
 pub mod greet {
-    include!(concat!(env!("OUT_DIR"), "/greet.v1.mod.rs"));
+    include!("generated/greet.v1.mod.rs");
 }
