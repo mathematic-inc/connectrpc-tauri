@@ -22,8 +22,15 @@ import { BUFFERED_RESPONSE_HEADER, STREAMING_REQUEST_HEADER, createTauriIpcClien
  * empty path yields the right origin everywhere without duplicating the rule.
  *
  * Streaming calls still travel over IPC commands, where only the path is read.
+ *
+ * `convertFileSrc` reads Tauri's globals, so this runs when a transport is
+ * created rather than at import. Apps can then import this module in code that
+ * also runs outside a Tauri webview, such as a browser build, and only create
+ * the transport inside one.
  */
-const IPC_BASE_URL = convertFileSrc("", "ipc-connect").replace(/\/$/v, "");
+function ipcBaseUrl(): string {
+  return convertFileSrc("", "ipc-connect").replace(/\/$/v, "");
+}
 
 export interface TauriTransportOptions {
   /**
@@ -60,7 +67,8 @@ export interface TauriTransportOptions {
 /**
  * Create a `Transport` that carries Connect over Tauri IPC.
  *
- * Requires the `connectrpc` Tauri plugin on the Rust side.
+ * Requires the `connectrpc` Tauri plugin on the Rust side, and must be called
+ * inside a Tauri webview. Importing this module is safe anywhere.
  *
  * ```ts
  * const transport = createTauriTransport();
@@ -74,7 +82,7 @@ export interface TauriTransportOptions {
 export function createTauriTransport(options: TauriTransportOptions = {}): Transport {
   return createTransport({
     httpClient: createTauriIpcClient(),
-    baseUrl: IPC_BASE_URL,
+    baseUrl: ipcBaseUrl(),
     useBinaryFormat: options.useBinaryFormat ?? true,
     interceptors: [...(options.interceptors ?? []), markStreamingRequests],
     // Spread rather than assign: `exactOptionalPropertyTypes` distinguishes an
