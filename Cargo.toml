@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/connectrpc-tauri", "examples/greet-app/src-tauri"]
+members = ["crates/connectrpc-tauri", "examples/greet-app/src-tauri", "tools/protobuf-bindings"]
 
 [workspace.package]
 edition = "2024"

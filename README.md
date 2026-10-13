@@ -134,7 +134,21 @@ crates/connectrpc-tauri      Rust plugin
 packages/transport           @connectrpc-tauri/transport
 examples/greet-app           demo app exercising all four kinds
 proto/                       transport envelopes + demo service
+tools/protobuf-bindings      regenerates the crate's checked-in bindings
 ```
+
+## Protobuf bindings
+
+The generated bindings for both packages are checked in, so neither building
+the crate nor installing the npm package needs `protoc` or `buf`. After
+changing a schema, regenerate them:
+
+```text
+npm run generate                                       # TypeScript, with buf
+mise exec -- cargo run --locked -p protobuf-bindings   # Rust, with the pinned protoc
+```
+
+`hk check` fails if either needs regenerating.
 
 ## Verifying
 
