@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.5...v0.1.6) (2026-10-14)
+
+
+### Bug Fixes
+
+* Answer ipc-connect only from the app's own pages ([#42](https://github.com/mathematic-inc/connectrpc-tauri/issues/42)) ([6ac98dc](https://github.com/mathematic-inc/connectrpc-tauri/commit/6ac98dc0cd42084966b50c9a2611875b78101500))
+
 ## [0.1.5](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.4...v0.1.5) (2026-10-13)
 
 
