@@ -278,6 +278,15 @@ go out as a plain `fetch`. Tauri's webview manager checks whether a scheme is
 already registered before installing its own handler, so this coexists with
 `ipc://` rather than replacing it — every stock plugin keeps working.
 
+Skipping the command router also skips what keeps other pages out of it. Every
+frame in the webview can reach a custom scheme, including an iframe at another
+origin: a remote page, or content the app serves from a scheme of its own.
+Tauri's IPC refuses those with an invoke key it gives only the main frame. The
+scheme has no key, so it checks the request's `Origin`, which a page can't set:
+it answers only the app's own pages (`tauri://localhost`, `http://tauri.localhost`
+on Windows and Android, or the `devUrl` during development), and names that
+origin, not `*`, as the only one that may read the response.
+
 What that removes from a unary call: the protobuf envelope and its
 encode/decode, the command-name dispatch, the ACL permission lookup, the call
 registry, and the channel. What is left is close to an identity mapping —
