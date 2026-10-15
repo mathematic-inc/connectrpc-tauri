@@ -94,7 +94,7 @@ jobs:
         run: cargo test --locked --all-features -p connectrpc-tauri
 
       # Caching is off in release jobs, so there is no cache to poison.
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0 # zizmor: ignore[cache-poisoning]
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.0.0 # zizmor: ignore[cache-poisoning]
         if: needs.meta.outputs.target == 'npm'
         with:
           node-version-file: .node-version
@@ -183,7 +183,7 @@ jobs:
         with:
           persist-credentials: false
       # Caching is off in release jobs, so there is no cache to poison.
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0 # zizmor: ignore[cache-poisoning]
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.0.0 # zizmor: ignore[cache-poisoning]
         with:
           node-version-file: .node-version
           registry-url: https://registry.npmjs.org
