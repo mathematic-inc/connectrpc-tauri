@@ -20,8 +20,17 @@
     },
     "packages/transport": {
       "release-type": "node",
-      "component": "transport"
+      "component": "transport",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages[\"packages/transport\"].version"
+        }
+      ]
     }
   },
-  "plugins": ["sentence-case"]
+  "plugins": [
+    "sentence-case"
+  ]
 }
