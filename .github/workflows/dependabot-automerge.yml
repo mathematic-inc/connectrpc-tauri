@@ -49,7 +49,7 @@ jobs:
                   ["Package crate", 15368],
                   ["Build package", 15368],
                   ["Basics", 15368],
-                  ["Rust 1.88.0", 15368],
+                  ["Rust 1.90.0", 15368],
                   ["CodeQL", 57789],
                   ["Analyze (actions)", 15368],
                   ["Analyze (javascript-typescript)", 15368],

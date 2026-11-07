@@ -20,8 +20,8 @@ runs:
     # mise.toml pins the Rust toolchain (with clippy and rustfmt) and protoc,
     # and exports RUSTUP_TOOLCHAIN. It is the same toolchain `hk` runs locally,
     # so CI and pre-commit cannot disagree about fmt or lint results.
-    - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+    - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+    - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       if: inputs.cache == 'true'
       with:
         cache-on-failure: true

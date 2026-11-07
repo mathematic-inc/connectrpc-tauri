@@ -1155,18 +1155,21 @@ impl ::buffa::ExtensionSet for ResponseFrame {
         &mut self.__buffa_unknown_fields
     }
 }
-impl<'de> serde::Deserialize<'de> for ResponseFrame {
-    fn deserialize<D: serde::Deserializer<'de>>(
+impl<'de> ::serde::Deserialize<'de> for ResponseFrame {
+    fn deserialize<D: ::serde::Deserializer<'de>>(
         d: D,
     ) -> ::core::result::Result<Self, D::Error> {
         struct _V;
-        impl<'de> serde::de::Visitor<'de> for _V {
+        impl<'de> ::serde::de::Visitor<'de> for _V {
             type Value = ResponseFrame;
-            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            fn expecting(
+                &self,
+                f: &mut ::core::fmt::Formatter<'_>,
+            ) -> ::core::fmt::Result {
                 f.write_str("struct ResponseFrame")
             }
             #[allow(clippy::field_reassign_with_default)]
-            fn visit_map<A: serde::de::MapAccess<'de>>(
+            fn visit_map<A: ::serde::de::MapAccess<'de>>(
                 self,
                 mut map: A,
             ) -> ::core::result::Result<ResponseFrame, A::Error> {
@@ -1177,9 +1180,9 @@ impl<'de> serde::Deserialize<'de> for ResponseFrame {
                     match key.as_str() {
                         "message" => {
                             struct _DeserSeed;
-                            impl<'de> serde::de::DeserializeSeed<'de> for _DeserSeed {
+                            impl<'de> ::serde::de::DeserializeSeed<'de> for _DeserSeed {
                                 type Value = ::buffa::alloc::vec::Vec<u8>;
-                                fn deserialize<D: serde::Deserializer<'de>>(
+                                fn deserialize<D: ::serde::Deserializer<'de>>(
                                     self,
                                     d: D,
                                 ) -> ::core::result::Result<
@@ -1198,7 +1201,7 @@ impl<'de> serde::Deserialize<'de> for ResponseFrame {
                             if let Some(v) = v {
                                 if __oneof_frame.is_some() {
                                     return Err(
-                                        serde::de::Error::custom(
+                                        ::serde::de::Error::custom(
                                             "multiple oneof fields set for 'frame'",
                                         ),
                                     );
@@ -1220,7 +1223,7 @@ impl<'de> serde::Deserialize<'de> for ResponseFrame {
                             if let Some(v) = v {
                                 if __oneof_frame.is_some() {
                                     return Err(
-                                        serde::de::Error::custom(
+                                        ::serde::de::Error::custom(
                                             "multiple oneof fields set for 'frame'",
                                         ),
                                     );
@@ -1246,7 +1249,7 @@ impl<'de> serde::Deserialize<'de> for ResponseFrame {
                             if let Some(v) = v {
                                 if __oneof_frame.is_some() {
                                     return Err(
-                                        serde::de::Error::custom(
+                                        ::serde::de::Error::custom(
                                             "multiple oneof fields set for 'frame'",
                                         ),
                                     );
@@ -1266,7 +1269,7 @@ impl<'de> serde::Deserialize<'de> for ResponseFrame {
                             if let Some(v) = v {
                                 if __oneof_frame.is_some() {
                                     return Err(
-                                        serde::de::Error::custom(
+                                        ::serde::de::Error::custom(
                                             "multiple oneof fields set for 'frame'",
                                         ),
                                     );
@@ -1279,7 +1282,7 @@ impl<'de> serde::Deserialize<'de> for ResponseFrame {
                             }
                         }
                         _ => {
-                            map.next_value::<serde::de::IgnoredAny>()?;
+                            map.next_value::<::serde::de::IgnoredAny>()?;
                         }
                     }
                 }
