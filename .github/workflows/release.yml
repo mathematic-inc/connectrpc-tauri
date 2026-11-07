@@ -85,7 +85,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-rust-build # zizmor: ignore[self-repository]
+      - uses: $/.github/actions/setup-rust-build
         if: needs.meta.outputs.target == 'crate'
         with:
           cache: "false"
@@ -143,7 +143,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-rust-build # zizmor: ignore[self-repository]
+      - uses: $/.github/actions/setup-rust-build
         with:
           cache: "false"
       - name: Authenticate with crates.io

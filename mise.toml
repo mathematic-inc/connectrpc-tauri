@@ -5,7 +5,7 @@ idiomatic_version_file_enable_tools = ["node", "pnpm", "python", "ruff", "rust"]
 npm.package_manager = "npm"
 
 [tools]
-actionlint = "1.7.12"
+jactionlint = "2.5.0"
 buf = "1.75.0"
 ghalint = "1.6.0"
 gitleaks = "8.30.1"
@@ -39,4 +39,3 @@ zizmor = "1.32.0"
 "github:QuiiBz/sherif" = "1.13.0"
 "npm:knip" = { version = "6.44.2", depends = ["node"] }
 "npm:sort-package-json" = { version = "4.1.0", depends = ["node"] }
-"pipx:yamllint" = { version = "1.38.0", depends = ["python", "uv"] }
