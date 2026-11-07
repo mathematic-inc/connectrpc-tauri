@@ -32,12 +32,12 @@ pub mod response_frame {
             Self::Some(Frame::from(v))
         }
     }
-    impl serde::Serialize for Frame {
-        fn serialize<S: serde::Serializer>(
+    impl ::serde::Serialize for Frame {
+        fn serialize<S: ::serde::Serializer>(
             &self,
             s: S,
         ) -> ::core::result::Result<S::Ok, S::Error> {
-            use serde::ser::SerializeMap;
+            use ::serde::ser::SerializeMap;
             let mut map = s.serialize_map(Some(1))?;
             match self {
                 Self::Message(v) => {
@@ -47,13 +47,13 @@ pub mod response_frame {
                     )?;
                 }
                 Self::Trailers(v) => {
-                    map.serialize_entry("trailers", v)?;
+                    map.serialize_entry("trailers", &**v)?;
                 }
                 Self::Error(v) => {
                     map.serialize_entry("error", v)?;
                 }
                 Self::End(v) => {
-                    map.serialize_entry("end", v)?;
+                    map.serialize_entry("end", &**v)?;
                 }
             }
             map.end()

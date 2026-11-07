@@ -35,9 +35,9 @@
     "prepack": "cp ../../README.md ../../LICENSE-MIT ../../LICENSE-APACHE ."
   },
   "devDependencies": {
-    "@bufbuild/protobuf": "^2.15.0",
-    "@connectrpc/connect": "^2.2.0",
-    "@tauri-apps/api": "^2.12.1"
+    "@bufbuild/protobuf": "^2.17.0",
+    "@connectrpc/connect": "^2.3.0",
+    "@tauri-apps/api": "^2.12.4"
   },
   "peerDependencies": {
     "@bufbuild/protobuf": "^2.15.0",

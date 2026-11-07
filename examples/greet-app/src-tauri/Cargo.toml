@@ -10,12 +10,12 @@ publish = false
 buffa.workspace = true
 connectrpc.workspace = true
 connectrpc-tauri = { path = "../../../crates/connectrpc-tauri", version = "0.1.3", features = ["greet-example"] }
-futures = "0.3"
+futures = "0.3.34"
 tauri = { workspace = true, features = ["wry"] }
 tokio.workspace = true
 
 [build-dependencies]
-tauri-build = { version = "2.6.3", features = [] }
+tauri-build = { version = "2.7.4", features = [] }
 
 [features]
 # Tauri decides between the dev server and bundled assets from this feature,
