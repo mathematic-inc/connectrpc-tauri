@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.6...v0.1.7) (2026-11-07)
+
+
+### Bug Fixes
+
+* **deps:** Update dependencies across the stack ([#65](https://github.com/mathematic-inc/connectrpc-tauri/issues/65)) ([f175122](https://github.com/mathematic-inc/connectrpc-tauri/commit/f17512252ab0a7d109b6d3c15ac251f47c8ec7ff))
+
 ## [0.1.6](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.5...v0.1.6) (2026-10-14)
 
 
