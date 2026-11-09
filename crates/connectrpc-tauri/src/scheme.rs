@@ -59,8 +59,9 @@ pub(crate) fn register<R: Runtime, D: Dispatcher>(
         let origins = app_origins(&ctx.app_handle().config().build, tauri::is_dev());
         let webview_allowed = ctx
             .app_handle()
-            .try_state::<TransportState>()
-            .is_some_and(|state| state.callers.allows(ctx.webview_label()));
+            .state::<TransportState>()
+            .callers
+            .allows(ctx.webview_label());
         // Cloning is cheap: every field behind `ConnectRpcService` is an `Arc`
         // or a `Copy` policy.
         let service = service.clone();
