@@ -83,16 +83,15 @@ The permission prefix is the Rust crate name. Tauri's ACL keys a plugin's
 permissions on `CARGO_PKG_NAME`, so `PLUGIN_NAME` must equal the crate name;
 a mismatch is rejected at the ACL layer before any command runs.
 
-An app that also shows pages it doesn't trust, in webviews of their own, serves
-only its own webviews:
+An app that also shows pages it doesn't trust, in webviews of their own, names
+the webviews it serves:
 
 ```rust
 .plugin(connectrpc_tauri::serve_to(ConnectRpcService::new(router), ["main"]))
 ```
 
-Its capability names the same webviews under `webviews`, not `windows`: Tauri
-grants a window's capabilities to every webview in it. Unary calls skip
-capabilities, so the plugin checks the webview's label itself.
+Unary calls and commands alike then answer only those labels, which Tauri sets
+and no page can change.
 
 ## How it maps onto IPC
 

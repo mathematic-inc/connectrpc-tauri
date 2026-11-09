@@ -6,16 +6,11 @@ use bytes::Bytes;
 use connectrpc::{ConnectRpcService, dispatcher::Dispatcher};
 use tauri::{
     Manager, Runtime,
-    ipc::{InvokeResponseBody, JavaScriptChannelId},
+    ipc::{Invoke, InvokeResponseBody, JavaScriptChannelId},
     plugin::TauriPlugin,
 };
 
-use crate::{
-    call, codec,
-    registry::CallRegistry,
-    scheme::{self, Webviews},
-    wire,
-};
+use crate::{call, codec, registry::CallRegistry, scheme, wire};
 
 /// Name under which the plugin registers. The webview addresses commands as
 /// `plugin:connectrpc-tauri|connect_rpc`.
@@ -40,13 +35,30 @@ type StartFn = Box<
         + Sync,
 >;
 
+/// The webviews the plugin serves, by label.
+pub(crate) enum Callers {
+    Any,
+    Only(Vec<String>),
+}
+
+impl Callers {
+    pub(crate) fn allows(&self, label: &str) -> bool {
+        match self {
+            Self::Any => true,
+            Self::Only(labels) => labels.iter().any(|allowed| allowed == label),
+        }
+    }
+}
+
 /// Transport state managed by Tauri.
 pub(crate) struct TransportState {
     pub(crate) calls: Arc<CallRegistry>,
+    pub(crate) callers: Callers,
     start: StartFn,
 }
 
-/// Serve a [`ConnectRpcService`] over Tauri IPC.
+/// Serve a [`ConnectRpcService`] over Tauri IPC to every webview; [`serve_to`]
+/// names the ones to serve.
 ///
 /// ```rust,ignore
 /// let router = Arc::new(MyService).register(connectrpc::Router::new());
@@ -55,16 +67,14 @@ pub(crate) struct TransportState {
 ///     .run(tauri::generate_context!())?;
 /// ```
 pub fn serve<R: Runtime, D: Dispatcher>(service: ConnectRpcService<D>) -> TauriPlugin<R> {
-    plugin(service, Webviews::Every)
+    plugin(service, Callers::Any)
 }
 
-/// Serve a [`ConnectRpcService`] over Tauri IPC to the webviews labelled
-/// `webviews` alone, for an app that also shows pages it doesn't trust.
+/// Serve a [`ConnectRpcService`] over Tauri IPC to the webviews with `labels`
+/// alone, for an app that also shows pages it doesn't trust.
 ///
-/// Name the same webviews in the capability that grants the plugin's
-/// commands, under `webviews` rather than `windows`: Tauri grants a window's
-/// capabilities to every webview in it. Unary calls skip capabilities, so the
-/// plugin checks the label itself.
+/// Unary calls, which skip Tauri's capabilities, and the commands both check
+/// the label, which Tauri sets and no page can change.
 ///
 /// ```rust,ignore
 /// tauri::Builder::default()
@@ -73,26 +83,29 @@ pub fn serve<R: Runtime, D: Dispatcher>(service: ConnectRpcService<D>) -> TauriP
 /// ```
 pub fn serve_to<R: Runtime, D: Dispatcher>(
     service: ConnectRpcService<D>,
-    webviews: impl IntoIterator<Item = impl Into<String>>,
+    labels: impl IntoIterator<Item = impl Into<String>>,
 ) -> TauriPlugin<R> {
     plugin(
         service,
-        Webviews::Labelled(webviews.into_iter().map(Into::into).collect()),
+        Callers::Only(labels.into_iter().map(Into::into).collect()),
     )
 }
 
 fn plugin<R: Runtime, D: Dispatcher>(
     service: ConnectRpcService<D>,
-    webviews: Webviews,
+    callers: Callers,
 ) -> TauriPlugin<R> {
     let builder = tauri::plugin::Builder::new(PLUGIN_NAME);
     // Unary calls take the `ipc-connect://` scheme instead of a command; the
     // commands below still carry every streaming kind.
-    let builder = scheme::register(builder, service.clone(), webviews);
+    let builder = scheme::register(builder, service.clone());
+    let commands: fn(Invoke<R>) -> bool =
+        tauri::generate_handler![connect_rpc, connect_rpc_send, connect_rpc_cancel];
     builder
         .setup(move |app, _api| {
             let state = TransportState {
                 calls: Arc::new(CallRegistry::default()),
+                callers,
                 start: Box::new(move |start, channel, calls| {
                     // Cloning is cheap: every field behind `ConnectRpcService`
                     // is an `Arc` or a `Copy` policy.
@@ -103,11 +116,21 @@ fn plugin<R: Runtime, D: Dispatcher>(
             app.manage(state);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            connect_rpc,
-            connect_rpc_send,
-            connect_rpc_cancel
-        ])
+        .invoke_handler(move |invoke: Invoke<R>| {
+            let webview = invoke.message.webview_ref();
+            if webview
+                .state::<TransportState>()
+                .callers
+                .allows(webview.label())
+            {
+                commands(invoke)
+            } else {
+                invoke
+                    .resolver
+                    .reject("connectrpc-tauri doesn't serve this webview");
+                true
+            }
+        })
         .build()
 }
 

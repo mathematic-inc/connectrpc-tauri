@@ -30,16 +30,16 @@
 //! Another webview that loads the app's own pages sends their `Origin`, but its
 //! label is Tauri's, which no page can change.
 
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use bytes::Bytes;
 use connectrpc::{ConnectRpcService, dispatcher::Dispatcher};
 use http::{Response, header};
 use http_body_util::BodyExt;
-use tauri::{Runtime, utils::config::BuildConfig, utils::config::FrontendDist};
+use tauri::{Manager, Runtime, utils::config::BuildConfig, utils::config::FrontendDist};
 use tower::ServiceExt;
 
-use crate::body::IpcRequestBody;
+use crate::{body::IpcRequestBody, plugin::TransportState};
 
 /// The URI scheme unary calls travel over.
 ///
@@ -50,37 +50,22 @@ use crate::body::IpcRequestBody;
 /// valid in a URI scheme but not in that hostname.
 pub const SCHEME: &str = "ipc-connect";
 
-/// The webviews whose requests the scheme answers, by label.
-#[derive(Clone)]
-pub(crate) enum Webviews {
-    Every,
-    Labelled(Arc<[String]>),
-}
-
-impl Webviews {
-    fn include(&self, label: &str) -> bool {
-        match self {
-            Self::Every => true,
-            Self::Labelled(labels) => labels.iter().any(|allowed| allowed == label),
-        }
-    }
-}
-
 /// Register the unary fast path on a Tauri plugin builder.
 pub(crate) fn register<R: Runtime, D: Dispatcher>(
     builder: tauri::plugin::Builder<R>,
     service: ConnectRpcService<D>,
-    webviews: Webviews,
 ) -> tauri::plugin::Builder<R> {
     builder.register_asynchronous_uri_scheme_protocol(SCHEME, move |ctx, request, responder| {
         let origins = app_origins(&ctx.app_handle().config().build, tauri::is_dev());
-        let webview = ctx.webview_label().to_owned();
-        let webviews = webviews.clone();
+        let webview_allowed = ctx
+            .app_handle()
+            .try_state::<TransportState>()
+            .is_some_and(|state| state.callers.allows(ctx.webview_label()));
         // Cloning is cheap: every field behind `ConnectRpcService` is an `Arc`
         // or a `Copy` policy.
         let service = service.clone();
         tauri::async_runtime::spawn(async move {
-            responder.respond(handle(service, request, &webview, &webviews, &origins).await);
+            responder.respond(handle(service, request, webview_allowed, &origins).await);
         });
     })
 }
@@ -109,13 +94,12 @@ fn app_origins(build: &BuildConfig, dev: bool) -> Vec<String> {
     origins
 }
 
-/// Answer one request off the scheme handler, if it comes from one of
-/// `origins` in one of `webviews`.
+/// Answer one request off the scheme handler, if its webview is allowed and it
+/// comes from one of `origins`.
 async fn handle<D: Dispatcher>(
     service: ConnectRpcService<D>,
     request: http::Request<Vec<u8>>,
-    webview: &str,
-    webviews: &Webviews,
+    webview_allowed: bool,
     origins: &[String],
 ) -> Response<Cow<'static, [u8]>> {
     let origin = request
@@ -123,7 +107,7 @@ async fn handle<D: Dispatcher>(
         .get(header::ORIGIN)
         .and_then(|origin| origin.to_str().ok())
         .filter(|origin| origins.iter().any(|allowed| allowed == origin))
-        .filter(|_| webviews.include(webview))
+        .filter(|_| webview_allowed)
         .map(str::to_owned);
     // Without CORS headers, a page that sent this can't read even the refusal.
     let Some(origin) = origin else {
@@ -191,14 +175,20 @@ mod tests {
     use super::*;
 
     const APP: &str = "tauri://localhost";
-    const MAIN: &str = "main";
 
     async fn call(method: http::Method, origin: Option<&str>) -> Response<Cow<'static, [u8]>> {
-        call_from(MAIN, method, origin).await
+        send(true, method, origin).await
     }
 
-    async fn call_from(
-        webview: &str,
+    async fn call_from_another_webview(
+        method: http::Method,
+        origin: Option<&str>,
+    ) -> Response<Cow<'static, [u8]>> {
+        send(false, method, origin).await
+    }
+
+    async fn send(
+        webview_allowed: bool,
         method: http::Method,
         origin: Option<&str>,
     ) -> Response<Cow<'static, [u8]>> {
@@ -213,8 +203,7 @@ mod tests {
         handle(
             ConnectRpcService::new(Router::new()),
             request,
-            webview,
-            &Webviews::Labelled([MAIN.to_owned()].into()),
+            webview_allowed,
             &[APP.to_owned()],
         )
         .await
@@ -252,7 +241,7 @@ mod tests {
     #[tokio::test]
     async fn another_webview_at_the_apps_origin_is_refused() {
         for method in [http::Method::POST, http::Method::OPTIONS] {
-            let response = call_from("app", method, Some(APP)).await;
+            let response = call_from_another_webview(method, Some(APP)).await;
             assert_eq!(response.status(), http::StatusCode::FORBIDDEN);
             assert_eq!(allowed_origin(&response), None);
         }
