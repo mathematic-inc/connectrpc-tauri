@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.7...v0.1.8) (2026-11-09)
+
+
+### Features
+
+* Serve_to answers ipc-connect and the plugin's commands only for the webviews the app names ([#68](https://github.com/mathematic-inc/connectrpc-tauri/issues/68)) ([f9b2cc6](https://github.com/mathematic-inc/connectrpc-tauri/commit/f9b2cc60c203a005a917a5e857a1ebcb63f62b0f))
+
 ## [0.1.7](https://github.com/mathematic-inc/connectrpc-tauri/compare/v0.1.6...v0.1.7) (2026-11-07)
 
 
