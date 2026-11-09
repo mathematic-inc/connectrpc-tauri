@@ -90,8 +90,8 @@ the webviews it serves:
 .plugin(connectrpc_tauri::serve_to(ConnectRpcService::new(router), ["main"]))
 ```
 
-Unary calls and commands alike then answer only those labels, which Tauri sets
-and no page can change.
+Unary calls and commands alike then answer only webviews with those labels,
+which Tauri sets and no page can change.
 
 ## How it maps onto IPC
 

@@ -174,22 +174,23 @@ mod tests {
     use connectrpc::Router;
 
     use super::*;
+    use crate::plugin::Callers;
 
     const APP: &str = "tauri://localhost";
 
     async fn call(method: http::Method, origin: Option<&str>) -> Response<Cow<'static, [u8]>> {
-        send(true, method, origin).await
+        send("main", method, origin).await
     }
 
     async fn call_from_another_webview(
         method: http::Method,
         origin: Option<&str>,
     ) -> Response<Cow<'static, [u8]>> {
-        send(false, method, origin).await
+        send("app:probe", method, origin).await
     }
 
     async fn send(
-        webview_allowed: bool,
+        label: &str,
         method: http::Method,
         origin: Option<&str>,
     ) -> Response<Cow<'static, [u8]>> {
@@ -204,7 +205,7 @@ mod tests {
         handle(
             ConnectRpcService::new(Router::new()),
             request,
-            webview_allowed,
+            Callers::Only(vec!["main".into()]).allows(label),
             &[APP.to_owned()],
         )
         .await

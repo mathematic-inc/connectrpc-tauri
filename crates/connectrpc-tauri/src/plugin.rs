@@ -70,11 +70,11 @@ pub fn serve<R: Runtime, D: Dispatcher>(service: ConnectRpcService<D>) -> TauriP
     plugin(service, Callers::Any)
 }
 
-/// Serve a [`ConnectRpcService`] over Tauri IPC to the webviews with `labels`
-/// alone, for an app that also shows pages it doesn't trust.
+/// Serve a [`ConnectRpcService`] over Tauri IPC only to the webviews labelled
+/// `labels`, for an app that also shows pages it doesn't trust.
 ///
 /// Unary calls, which skip Tauri's capabilities, and the commands both check
-/// the label, which Tauri sets and no page can change.
+/// the webview's label, which Tauri sets and no page can change.
 ///
 /// ```rust,ignore
 /// tauri::Builder::default()
