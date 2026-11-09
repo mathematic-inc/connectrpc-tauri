@@ -10,7 +10,12 @@ use tauri::{
     plugin::TauriPlugin,
 };
 
-use crate::{call, codec, registry::CallRegistry, scheme, wire};
+use crate::{
+    call, codec,
+    registry::CallRegistry,
+    scheme::{self, Webviews},
+    wire,
+};
 
 /// Name under which the plugin registers. The webview addresses commands as
 /// `plugin:connectrpc-tauri|connect_rpc`.
@@ -50,10 +55,40 @@ pub(crate) struct TransportState {
 ///     .run(tauri::generate_context!())?;
 /// ```
 pub fn serve<R: Runtime, D: Dispatcher>(service: ConnectRpcService<D>) -> TauriPlugin<R> {
+    plugin(service, Webviews::Every)
+}
+
+/// Serve a [`ConnectRpcService`] over Tauri IPC to the webviews labelled
+/// `webviews` alone, for an app that also shows pages it doesn't trust.
+///
+/// Name the same webviews in the capability that grants the plugin's
+/// commands, under `webviews` rather than `windows`: Tauri grants a window's
+/// capabilities to every webview in it. Unary calls skip capabilities, so the
+/// plugin checks the label itself.
+///
+/// ```rust,ignore
+/// tauri::Builder::default()
+///     .plugin(connectrpc_tauri::serve_to(ConnectRpcService::new(router), ["main"]))
+///     .run(tauri::generate_context!())?;
+/// ```
+pub fn serve_to<R: Runtime, D: Dispatcher>(
+    service: ConnectRpcService<D>,
+    webviews: impl IntoIterator<Item = impl Into<String>>,
+) -> TauriPlugin<R> {
+    plugin(
+        service,
+        Webviews::Labelled(webviews.into_iter().map(Into::into).collect()),
+    )
+}
+
+fn plugin<R: Runtime, D: Dispatcher>(
+    service: ConnectRpcService<D>,
+    webviews: Webviews,
+) -> TauriPlugin<R> {
     let builder = tauri::plugin::Builder::new(PLUGIN_NAME);
     // Unary calls take the `ipc-connect://` scheme instead of a command; the
     // commands below still carry every streaming kind.
-    let builder = scheme::register(builder, service.clone());
+    let builder = scheme::register(builder, service.clone(), webviews);
     builder
         .setup(move |app, _api| {
             let state = TransportState {
