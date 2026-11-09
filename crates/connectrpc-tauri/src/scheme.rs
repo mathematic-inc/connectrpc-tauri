@@ -25,6 +25,10 @@
 //! own IPC keeps those out with an invoke key it gives the main frame only; a
 //! scheme has no such key, so it checks the request's `Origin` instead, which a
 //! page can't set.
+//!
+//! An app can also name the webviews the scheme answers ([`crate::serve_to`]).
+//! Another webview that loads the app's own pages sends their `Origin`, but its
+//! label is Tauri's, which no page can change.
 
 use std::borrow::Cow;
 
@@ -32,10 +36,10 @@ use bytes::Bytes;
 use connectrpc::{ConnectRpcService, dispatcher::Dispatcher};
 use http::{Response, header};
 use http_body_util::BodyExt;
-use tauri::{Runtime, utils::config::BuildConfig, utils::config::FrontendDist};
+use tauri::{Manager, Runtime, utils::config::BuildConfig, utils::config::FrontendDist};
 use tower::ServiceExt;
 
-use crate::body::IpcRequestBody;
+use crate::{body::IpcRequestBody, plugin::TransportState};
 
 /// The URI scheme unary calls travel over.
 ///
@@ -53,11 +57,16 @@ pub(crate) fn register<R: Runtime, D: Dispatcher>(
 ) -> tauri::plugin::Builder<R> {
     builder.register_asynchronous_uri_scheme_protocol(SCHEME, move |ctx, request, responder| {
         let origins = app_origins(&ctx.app_handle().config().build, tauri::is_dev());
+        let webview_allowed = ctx
+            .app_handle()
+            .state::<TransportState>()
+            .callers
+            .allows(ctx.webview_label());
         // Cloning is cheap: every field behind `ConnectRpcService` is an `Arc`
         // or a `Copy` policy.
         let service = service.clone();
         tauri::async_runtime::spawn(async move {
-            responder.respond(handle(service, request, &origins).await);
+            responder.respond(handle(service, request, webview_allowed, &origins).await);
         });
     })
 }
@@ -86,11 +95,12 @@ fn app_origins(build: &BuildConfig, dev: bool) -> Vec<String> {
     origins
 }
 
-/// Answer one request off the scheme handler, if it comes from one of
-/// `origins`.
+/// Answer one request off the scheme handler, if its webview is allowed and it
+/// comes from one of `origins`.
 async fn handle<D: Dispatcher>(
     service: ConnectRpcService<D>,
     request: http::Request<Vec<u8>>,
+    webview_allowed: bool,
     origins: &[String],
 ) -> Response<Cow<'static, [u8]>> {
     let origin = request
@@ -98,6 +108,7 @@ async fn handle<D: Dispatcher>(
         .get(header::ORIGIN)
         .and_then(|origin| origin.to_str().ok())
         .filter(|origin| origins.iter().any(|allowed| allowed == origin))
+        .filter(|_| webview_allowed)
         .map(str::to_owned);
     // Without CORS headers, a page that sent this can't read even the refusal.
     let Some(origin) = origin else {
@@ -163,10 +174,26 @@ mod tests {
     use connectrpc::Router;
 
     use super::*;
+    use crate::plugin::Callers;
 
     const APP: &str = "tauri://localhost";
 
     async fn call(method: http::Method, origin: Option<&str>) -> Response<Cow<'static, [u8]>> {
+        send("main", method, origin).await
+    }
+
+    async fn call_from_another_webview(
+        method: http::Method,
+        origin: Option<&str>,
+    ) -> Response<Cow<'static, [u8]>> {
+        send("app:probe", method, origin).await
+    }
+
+    async fn send(
+        label: &str,
+        method: http::Method,
+        origin: Option<&str>,
+    ) -> Response<Cow<'static, [u8]>> {
         let mut request = http::Request::builder()
             .method(method)
             .uri(format!("{SCHEME}://localhost/greet.v1.GreetService/Greet"))
@@ -178,6 +205,7 @@ mod tests {
         handle(
             ConnectRpcService::new(Router::new()),
             request,
+            Callers::Only(vec!["main".into()]).allows(label),
             &[APP.to_owned()],
         )
         .await
@@ -209,6 +237,15 @@ mod tests {
                 assert_eq!(response.status(), http::StatusCode::FORBIDDEN, "{origin}");
                 assert_eq!(allowed_origin(&response), None, "{origin}");
             }
+        }
+    }
+
+    #[tokio::test]
+    async fn another_webview_at_the_apps_origin_is_refused() {
+        for method in [http::Method::POST, http::Method::OPTIONS] {
+            let response = call_from_another_webview(method, Some(APP)).await;
+            assert_eq!(response.status(), http::StatusCode::FORBIDDEN);
+            assert_eq!(allowed_origin(&response), None);
         }
     }
 

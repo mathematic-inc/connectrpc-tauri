@@ -83,6 +83,16 @@ The permission prefix is the Rust crate name. Tauri's ACL keys a plugin's
 permissions on `CARGO_PKG_NAME`, so `PLUGIN_NAME` must equal the crate name;
 a mismatch is rejected at the ACL layer before any command runs.
 
+An app that also shows pages it doesn't trust, in webviews of their own, names
+the webviews it serves:
+
+```rust
+.plugin(connectrpc_tauri::serve_to(ConnectRpcService::new(router), ["main"]))
+```
+
+Unary calls and commands alike then answer only webviews with those labels,
+which Tauri sets and no page can change.
+
 ## How it maps onto IPC
 
 Unary calls bypass Tauri's IPC entirely. Everything else uses three commands
@@ -285,7 +295,9 @@ Tauri's IPC refuses those with an invoke key it gives only the main frame. The
 scheme has no key, so it checks the request's `Origin`, which a page can't set:
 it answers only the app's own pages (`tauri://localhost`, `http://tauri.localhost`
 on Windows and Android, or the `devUrl` during development), and names that
-origin, not `*`, as the only one that may read the response.
+origin, not `*`, as the only one that may read the response. Under `serve_to`
+it also checks the webview's label, which Tauri sets and no page can change:
+another webview that loads the app's pages sends their `Origin` too.
 
 What that removes from a unary call: the protobuf envelope and its
 encode/decode, the command-name dispatch, the ACL permission lookup, the call

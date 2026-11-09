@@ -39,7 +39,7 @@ mod scheme;
 pub mod testing;
 
 pub use deferred::DeferredDispatcher;
-pub use plugin::{PLUGIN_NAME, serve};
+pub use plugin::{PLUGIN_NAME, serve, serve_to};
 pub use registry::CallId;
 pub use scheme::SCHEME;
 
