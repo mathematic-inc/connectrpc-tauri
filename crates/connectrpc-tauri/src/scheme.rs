@@ -10,8 +10,8 @@
 //! # Why unary only
 //!
 //! A scheme responder is one-shot on every platform: [`UriSchemeResponder`]
-//! takes a complete `Response` by value, and underneath it WKWebView does
-//! `didReceiveResponse` then a single `didReceiveData`, while WebKitGTK builds
+//! takes a complete `Response` by value, and underneath it `WKWebView` does
+//! `didReceiveResponse` then a single `didReceiveData`, while `WebKitGTK` builds
 //! its stream from a finished buffer. Nothing can push a second frame, so a
 //! server-streaming response would only arrive once it had been buffered
 //! whole. Streaming keeps the channel transport, which really does stream.

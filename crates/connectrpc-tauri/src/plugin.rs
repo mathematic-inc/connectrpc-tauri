@@ -66,6 +66,7 @@ pub(crate) struct TransportState {
 ///     .plugin(connectrpc_tauri::serve(ConnectRpcService::new(router)))
 ///     .run(tauri::generate_context!())?;
 /// ```
+#[must_use]
 pub fn serve<R: Runtime, D: Dispatcher>(service: ConnectRpcService<D>) -> TauriPlugin<R> {
     plugin(service, Callers::Any)
 }

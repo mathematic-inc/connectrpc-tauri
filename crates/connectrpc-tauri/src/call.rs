@@ -98,13 +98,7 @@ pub(crate) async fn start<D: Dispatcher>(
                 // yield point only once the task's coop budget is spent.
                 tokio::task::coop::consume_budget().await;
 
-                let frame = match frame {
-                    Ok(frame) => frame,
-                    Err(e) => {
-                        send_frame(&channel, wire::response_frame::Frame::Error(e.to_string()));
-                        break;
-                    }
-                };
+                let Ok(frame) = frame;
 
                 let wire_frame = if let Some(data) = frame.data_ref() {
                     wire::response_frame::Frame::Message(data.to_vec())

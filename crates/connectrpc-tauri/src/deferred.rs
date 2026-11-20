@@ -13,7 +13,7 @@ use connectrpc::{
     },
 };
 
-/// A ConnectRPC dispatcher that can be initialized exactly once.
+/// A `ConnectRPC` dispatcher that can be initialized exactly once.
 ///
 /// Tauri requires plugins that register URI schemes to be attached to the
 /// builder, but application services may depend on state created later in the
@@ -104,10 +104,10 @@ impl<D: Dispatcher> Dispatcher for DeferredDispatcher<D> {
         request: Payload,
         format: CodecFormat,
     ) -> UnaryResult {
-        match self.inner.get() {
-            Some(dispatcher) => dispatcher.call_unary(path, context, request, format),
-            None => unimplemented_unary(path),
-        }
+        self.inner.get().map_or_else(
+            || unimplemented_unary(path),
+            |dispatcher| dispatcher.call_unary(path, context, request, format),
+        )
     }
 
     #[inline]
@@ -118,10 +118,10 @@ impl<D: Dispatcher> Dispatcher for DeferredDispatcher<D> {
         request: Bytes,
         format: CodecFormat,
     ) -> StreamingResult {
-        match self.inner.get() {
-            Some(dispatcher) => dispatcher.call_server_streaming(path, context, request, format),
-            None => unimplemented_streaming(path),
-        }
+        self.inner.get().map_or_else(
+            || unimplemented_streaming(path),
+            |dispatcher| dispatcher.call_server_streaming(path, context, request, format),
+        )
     }
 
     #[inline]
@@ -132,10 +132,10 @@ impl<D: Dispatcher> Dispatcher for DeferredDispatcher<D> {
         requests: RequestStream,
         format: CodecFormat,
     ) -> UnaryResult {
-        match self.inner.get() {
-            Some(dispatcher) => dispatcher.call_client_streaming(path, context, requests, format),
-            None => unimplemented_unary(path),
-        }
+        self.inner.get().map_or_else(
+            || unimplemented_unary(path),
+            |dispatcher| dispatcher.call_client_streaming(path, context, requests, format),
+        )
     }
 
     #[inline]
@@ -146,9 +146,9 @@ impl<D: Dispatcher> Dispatcher for DeferredDispatcher<D> {
         requests: RequestStream,
         format: CodecFormat,
     ) -> StreamingResult {
-        match self.inner.get() {
-            Some(dispatcher) => dispatcher.call_bidi_streaming(path, context, requests, format),
-            None => unimplemented_streaming(path),
-        }
+        self.inner.get().map_or_else(
+            || unimplemented_streaming(path),
+            |dispatcher| dispatcher.call_bidi_streaming(path, context, requests, format),
+        )
     }
 }

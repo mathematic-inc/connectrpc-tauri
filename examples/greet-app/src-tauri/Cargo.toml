@@ -6,6 +6,13 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+[features]
+# Tauri decides between the dev server and bundled assets from this feature,
+# not from the cargo profile: without it even a release build loads `devUrl`
+# and shows a blank window when no dev server is running. `tauri build`
+# enables it by default.
+custom-protocol = ["tauri/custom-protocol"]
+
 [dependencies]
 buffa.workspace = true
 connectrpc.workspace = true
@@ -17,9 +24,5 @@ tokio.workspace = true
 [build-dependencies]
 tauri-build = { version = "2.7.4", features = [] }
 
-[features]
-# Tauri decides between the dev server and bundled assets from this feature,
-# not from the cargo profile: without it even a release build loads `devUrl`
-# and shows a blank window when no dev server is running. `tauri build`
-# enables it by default.
-custom-protocol = ["tauri/custom-protocol"]
+[lints]
+workspace = true

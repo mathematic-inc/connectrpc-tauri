@@ -5,6 +5,7 @@
 //! without needing a webview.
 
 use std::{
+    future::{Future, ready},
     sync::{
         Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
@@ -36,30 +37,30 @@ struct Greeter {
 // refinement; it is what makes these handlers readable.
 #[allow(refining_impl_trait)]
 impl GreetService for Greeter {
-    async fn greet(
+    fn greet(
         &self,
         _ctx: RequestContext,
         request: ServiceRequest<'_, GreetRequest>,
-    ) -> ServiceResult<GreetResponse> {
+    ) -> impl Future<Output = ServiceResult<GreetResponse>> {
         // Fields are zero-copy views into the request buffer.
         let name = request.name;
         if name.is_empty() {
-            return Err(connectrpc::ConnectError::invalid_argument(
+            return ready(Err(connectrpc::ConnectError::invalid_argument(
                 "name is required",
-            ));
+            )));
         }
-        Ok(GreetResponse {
+        ready(Ok(GreetResponse {
             greeting: format!("Hello, {name}!"),
             ..Default::default()
         }
-        .into())
+        .into()))
     }
 
-    async fn greet_many(
+    fn greet_many(
         &self,
         _ctx: RequestContext,
         request: ServiceRequest<'_, GreetManyRequest>,
-    ) -> ServiceResult<ServiceStream<GreetResponse>> {
+    ) -> impl Future<Output = ServiceResult<ServiceStream<GreetResponse>>> {
         // The stream outlives the request, so copy out before returning.
         let name = request.name.to_string();
         let count = request.count;
@@ -73,7 +74,7 @@ impl GreetService for Greeter {
                     ..Default::default()
                 })
             }));
-        Ok(stream.into())
+        ready(Ok(stream.into()))
     }
 
     async fn greet_all(
@@ -92,18 +93,18 @@ impl GreetService for Greeter {
         .into())
     }
 
-    async fn greet_chat(
+    fn greet_chat(
         &self,
         _ctx: RequestContext,
         requests: InboundStream<GreetRequest>,
-    ) -> ServiceResult<ServiceStream<GreetResponse>> {
+    ) -> impl Future<Output = ServiceResult<ServiceStream<GreetResponse>>> {
         let stream: ServiceStream<GreetResponse> = Box::pin(requests.map(|item| {
             item.map(|msg| GreetResponse {
                 greeting: format!("Hello, {}!", msg.name()),
                 ..Default::default()
             })
         }));
-        Ok(stream.into())
+        ready(Ok(stream.into()))
     }
 }
 
@@ -148,7 +149,8 @@ fn envelope(message: &GreetRequest) -> Vec<u8> {
     let bytes = message.encode_to_vec();
     let mut framed = Vec::with_capacity(bytes.len() + 5);
     framed.push(0);
-    framed.extend_from_slice(&(bytes.len() as u32).to_be_bytes());
+    let length = u32::try_from(bytes.len()).expect("message is longer than a Connect envelope");
+    framed.extend_from_slice(&length.to_be_bytes());
     framed.extend_from_slice(&bytes);
     framed
 }

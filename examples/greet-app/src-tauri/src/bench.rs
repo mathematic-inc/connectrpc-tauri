@@ -14,7 +14,7 @@ use tauri::ipc::{Channel, InvokeBody, InvokeResponseBody, Request, Response};
 /// Mirrors `GreetService.Greet` exactly, so the delta against the real client
 /// is the price of the Connect protocol plus this crate's framing.
 #[tauri::command]
-pub async fn bench_raw_unary(request: Request<'_>) -> Result<Response, String> {
+pub(crate) async fn bench_raw_unary(request: Request<'_>) -> Result<Response, String> {
     let InvokeBody::Raw(bytes) = request.body() else {
         return Err("expected a raw IPC payload".to_string());
     };
@@ -31,7 +31,7 @@ pub async fn bench_raw_unary(request: Request<'_>) -> Result<Response, String> {
 /// This is what an app would write without any of this crate, and it is the
 /// comparison a reader actually cares about.
 #[tauri::command]
-pub async fn bench_raw_json(name: String) -> String {
+pub(crate) async fn bench_raw_json(name: String) -> String {
     format!("Hello, {name}!")
 }
 
@@ -42,7 +42,7 @@ pub async fn bench_raw_json(name: String) -> String {
 /// Tauri encodes bytes in a JSON payload as one JSON number per byte, and this
 /// is what that costs.
 #[tauri::command]
-pub async fn bench_raw_json_bytes(payload: Vec<u8>) -> Vec<u8> {
+pub(crate) async fn bench_raw_json_bytes(payload: Vec<u8>) -> Vec<u8> {
     let decoded = GreetRequest::decode(&mut payload.as_slice()).unwrap_or_default();
     let response = GreetResponse {
         greeting: format!("Hello, {}!", decoded.name),
@@ -56,7 +56,7 @@ pub async fn bench_raw_json_bytes(payload: Vec<u8>) -> Vec<u8> {
 /// No Connect envelopes and no per-frame protobuf, so the gap against
 /// `GreetMany` isolates what the transport adds per streamed message.
 #[tauri::command]
-pub async fn bench_raw_stream(
+pub(crate) async fn bench_raw_stream(
     count: u32,
     size: u32,
     channel: Channel<InvokeResponseBody>,
@@ -72,7 +72,7 @@ pub async fn bench_raw_stream(
 
 /// Whether the app was started to run the benchmark rather than the demo.
 #[tauri::command]
-pub fn bench_mode() -> bool {
+pub(crate) fn bench_mode() -> bool {
     std::env::var_os("GREET_APP_BENCH").is_some()
 }
 
@@ -82,7 +82,11 @@ pub fn bench_mode() -> bool {
 /// browser console is not readable from a terminal, so the table comes back
 /// here to be printed.
 #[tauri::command]
-pub fn bench_report(app: tauri::AppHandle, report: String) {
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "Tauri deserializes command arguments into owned values"
+)]
+pub(crate) fn bench_report(app: tauri::AppHandle, report: String) {
     println!("{report}");
     if std::env::var_os("GREET_APP_BENCH").is_some() {
         app.exit(0);

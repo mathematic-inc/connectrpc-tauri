@@ -15,6 +15,13 @@ links = "connectrpc-tauri"
 [package.metadata.docs.rs]
 all-features = true
 
+[features]
+# Generated bindings for the demo `greet.v1` service, used by tests and the
+# example app.
+greet-example = []
+# Harness for driving the transport without a webview.
+testing = []
+
 # The test drives the demo service through the test harness, so it needs both
 # features. `required-features` states that directly; a self dev-dependency
 # would do the same but reads as a dependency cycle to tooling.
@@ -43,9 +50,5 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 [build-dependencies]
 tauri-plugin = { version = "2.7.2", features = ["build"] }
 
-[features]
-# Generated bindings for the demo `greet.v1` service, used by tests and the
-# example app.
-greet-example = []
-# Harness for driving the transport without a webview.
-testing = []
+[lints]
+workspace = true

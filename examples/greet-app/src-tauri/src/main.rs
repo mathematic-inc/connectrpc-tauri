@@ -1,10 +1,14 @@
-// Demo app: serves `greet.v1.GreetService` to the webview over Tauri IPC.
+//! Demo app: serves `greet.v1.GreetService` to the webview over Tauri IPC.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod bench;
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    future::{Future, ready},
+    sync::Arc,
+    time::Duration,
+};
 
 use connectrpc::{
     ConnectError, ConnectRpcService, InboundStream, RequestContext, Router, ServiceRequest,
@@ -21,27 +25,27 @@ struct Greeter;
 // these readable; it is a refinement, not a mismatch.
 #[allow(refining_impl_trait)]
 impl GreetService for Greeter {
-    async fn greet(
+    fn greet(
         &self,
         _ctx: RequestContext,
         request: ServiceRequest<'_, GreetRequest>,
-    ) -> ServiceResult<GreetResponse> {
+    ) -> impl Future<Output = ServiceResult<GreetResponse>> {
         let name = request.name;
         if name.is_empty() {
-            return Err(ConnectError::invalid_argument("name is required"));
+            return ready(Err(ConnectError::invalid_argument("name is required")));
         }
-        Ok(GreetResponse {
+        ready(Ok(GreetResponse {
             greeting: format!("Hello, {name}!"),
             ..Default::default()
         }
-        .into())
+        .into()))
     }
 
-    async fn greet_many(
+    fn greet_many(
         &self,
         _ctx: RequestContext,
         request: ServiceRequest<'_, GreetManyRequest>,
-    ) -> ServiceResult<ServiceStream<GreetResponse>> {
+    ) -> impl Future<Output = ServiceResult<ServiceStream<GreetResponse>>> {
         // Copy out: the stream outlives the borrowed request.
         let name = request.name.to_string();
         let count = request.count.clamp(1, 100);
@@ -64,7 +68,7 @@ impl GreetService for Greeter {
                     })
                 }
             }));
-        Ok(stream.into())
+        ready(Ok(stream.into()))
     }
 
     async fn greet_all(
@@ -88,11 +92,11 @@ impl GreetService for Greeter {
         .into())
     }
 
-    async fn greet_chat(
+    fn greet_chat(
         &self,
         _ctx: RequestContext,
         requests: InboundStream<GreetRequest>,
-    ) -> ServiceResult<ServiceStream<GreetResponse>> {
+    ) -> impl Future<Output = ServiceResult<ServiceStream<GreetResponse>>> {
         // One response per request, emitted as each arrives.
         let stream: ServiceStream<GreetResponse> = Box::pin(requests.map(|item| {
             item.map(|msg| GreetResponse {
@@ -100,12 +104,16 @@ impl GreetService for Greeter {
                 ..Default::default()
             })
         }));
-        Ok(stream.into())
+        ready(Ok(stream.into()))
     }
 }
 
 /// Mirror one webview log line to stdout.
 #[tauri::command]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "Tauri deserializes command arguments into owned values"
+)]
 fn selftest_log(line: String) {
     println!("app: {line}");
 }
@@ -122,7 +130,7 @@ fn selftest_report(passed: bool, failures: Vec<String>) {
         println!("selftest: PASS");
     } else {
         println!("selftest: FAIL");
-        for failure in &failures {
+        for failure in failures {
             println!("  {failure}");
         }
     }

@@ -1,3 +1,5 @@
+//! Prepares the Tauri build of the example app.
+
 fn main() {
     // `generate_context!` panics at compile time if `frontendDist` is missing,
     // and `dist/` is gitignored, so a clean checkout cannot even `cargo test`
