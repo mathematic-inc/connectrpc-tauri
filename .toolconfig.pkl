@@ -101,17 +101,15 @@ sections {
       ignore = List("**/src/gen/**")
     }
     `cargo-deny` {
-      // This is an `unmaintained` advisory on a transitive dependency of Tauri, not a
-      // vulnerability, and it has no upgrade available. Drop the entry once Tauri moves off it.
+      // An `unmaintained` advisory, not a vulnerability, with no upgrade available. Drop the entry
+      // once Tauri moves off the crate.
       advisories {
         ignore {
           new { id = "RUSTSEC-2024-0370"; reason = "proc-macro-error, via Tauri's macro crates" }
         }
       }
-      // Tauri's tree pulls several duplicated transitive versions that this repository does not
-      // control.
+      // Tauri's tree has duplicate versions that this repository cannot control.
       bans { ["multiple-versions"] = "allow" }
-      // These dependencies use licenses outside the organization's list.
       licenses {
         exceptions {
           new { crate = "cssparser"; allow = List("MPL-2.0") }
@@ -128,8 +126,8 @@ sections {
     buf {
       modules { new { path = "proto" } }
       lint {
-        // `greet.v1` is the demo service. It shares one request and response across all four
-        // method kinds so that the example exercises them against identical messages.
+        // The demo service shares one request and response across all four method kinds, so that
+        // the example runs them on identical messages.
         ignore_only {
           ["RPC_REQUEST_RESPONSE_UNIQUE"] = List("proto/greet/v1/greet.proto")
           ["RPC_REQUEST_STANDARD_NAME"] = List("proto/greet/v1/greet.proto")

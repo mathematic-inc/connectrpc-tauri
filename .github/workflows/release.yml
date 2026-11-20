@@ -133,7 +133,7 @@ jobs:
           if [[ "$TARGET" == crate && "$IS_PRERELEASE" == false ]]; then
             latest=true
           fi
-          # A re-run of this job updates the release that the first run made.
+          # A re-run finds the release that the first run made.
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release edit "$TAG" --title "$TAG" --prerelease="$IS_PRERELEASE" --latest="$latest"
           else

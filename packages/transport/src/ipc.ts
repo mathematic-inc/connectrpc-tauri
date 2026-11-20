@@ -31,7 +31,6 @@ const START = "plugin:connectrpc-tauri|connect_rpc";
 const SEND = "plugin:connectrpc-tauri|connect_rpc_send";
 const CANCEL = "plugin:connectrpc-tauri|connect_rpc_cancel";
 
-/** The fields of a header that the transport reads. */
 type WireHeader = Readonly<Pick<Header, "name" | "value">>;
 
 /** Monotonic per-webview call id. */
@@ -138,7 +137,7 @@ export function createTauriIpcClient(): UniversalClientFn {
           // here and the protocol layer never reads them.
           break;
         case undefined:
-          // A frame that sets no case carries nothing.
+          // A frame with no case carries nothing.
           break;
         case "end":
           // Close only after queued writes land, or the reader loses the tail
@@ -225,8 +224,6 @@ async function unaryCall(request: UniversalClientRequest): Promise<UniversalClie
 }
 
 /**
- * Whether the bytes sit in a plain `ArrayBuffer`, which `fetch` accepts.
- *
  * The DOM types a `BodyInit` view as `Uint8Array<ArrayBuffer>`, while Connect
  * types its bytes as a `Uint8Array` over any `ArrayBufferLike`.
  */

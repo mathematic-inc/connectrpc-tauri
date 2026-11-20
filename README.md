@@ -211,7 +211,7 @@ The raw baseline above is a protobuf `invoke`, the fastest way to move the
 same bytes by hand — one per message for the client-streaming rows, which is
 what a hand-written client sending a sequence would do.
 
-Unary calls are within a few percent of a hand-written `invoke` — they no longer
+Unary calls are within a few percent of a hand-written `invoke` — they do not
 go through Tauri's IPC at all. Unary requests are a plain `fetch` against the
 `ipc-connect://` scheme the plugin registers, which skips the command router,
 the ACL check, and the protobuf envelope. See
@@ -265,11 +265,11 @@ messages cross the IPC boundary as 2 frames, not 100 — where a naive `Channel`
 loop pays one crossing each.
 
 Requests need help, because Connect hands the client one message at a time.
-Awaiting an `invoke` per message made a client-streaming call cost a full round
-trip for each message — 100 messages took about 19 milliseconds, exactly
-tracking a hand-written loop of serial invokes. The pump now coalesces whatever
-the producer has _already_ coalesced into one send, which takes the same 100
-messages to about 1.2 milliseconds.
+Awaiting an `invoke` per message costs a full round trip for each message — 100
+messages take about 19 milliseconds, exactly tracking a hand-written loop of
+serial invokes. The pump coalesces whatever the producer has _already_
+coalesced into one send, which takes the same 100 messages to about 1.2
+milliseconds.
 
 "Already produced" is the entire subtlety. The pump never waits for a chunk
 that has not been generated, so a message whose reply the client is waiting on
@@ -304,9 +304,8 @@ and no page can change: another webview that loads the app's pages sends their
 What that removes from unary calls: the protobuf envelope and its
 encode/decode, the command-name dispatch, the ACL permission lookup, the call
 registry, and the channel. What is left is close to an identity mapping —
-`http::Request` in, service, `http::Response` out — which is why unary now
-lands within a few percent of a hand-written `invoke` rather than 15-20% above
-it.
+`http::Request` in, service, `http::Response` out — which is why unary lands
+within a few percent of a hand-written `invoke`.
 
 Streaming keeps the command-and-channel path. A scheme responder is one-shot on
 every platform: it takes a complete response by value, and underneath it

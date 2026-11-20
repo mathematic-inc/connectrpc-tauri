@@ -16,7 +16,7 @@ import {
   StartRequestSchema,
 } from "./gen/connectrpc/tauri/v1/transport_pb.js";
 
-/** A call captured by the fake bridge. The bridge changes it; tests only read it. */
+/** A call captured by the fake bridge. */
 interface FakeCallState {
   callId: bigint;
   url: string;
@@ -309,7 +309,6 @@ describe("tauri ipc client", () => {
       "ipc-connect://localhost/pkg.Service/Method",
       expect.objectContaining({ method: "POST", body: new Uint8Array([1, 2, 3]) }),
     );
-    // No IPC call was ever registered.
     expect(calls.size).toBe(0);
   });
 
