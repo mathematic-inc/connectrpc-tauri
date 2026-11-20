@@ -1,0 +1,112 @@
+amends
+  "package://github.com/mathematic-inc/toolconfig/releases/download/v2026.11.6/toolconfig@2026.11.6#/ToolConfig.pkl"
+
+root = true
+
+toolconfig {
+  `extends` =
+    List(new Repository {
+      git = "https://github.com/mathematic-inc/toolconfig-config.git"
+      rev = "fc76ddad46c14a7b7fe03bf117a92ede11ea0dfb"
+      path = "profiles/org/.toolconfig.pkl"
+    })
+}
+
+sections {
+  ["*"] {
+    typos {
+      ["default"] {
+        // `sherif` is a tool name, not a misspelling of "sheriff".
+        ["extend-identifiers"] { ["Sherif"] = "Sherif"; ["sherif"] = "sherif" }
+        ["extend-words"] { ["Sherif"] = "Sherif"; ["sherif"] = "sherif" }
+      }
+    }
+    // Tauri generates the permissions folder.
+    oxfmt {
+      ignorePatterns =
+        List(
+          "**/dist/**",
+          "**/gen/**",
+          "**/generated/**",
+          "**/node_modules/**",
+          "**/target/**",
+          "**/vendor/**",
+          "**/*.md",
+          "**/*.toml",
+          "**/permissions/**",
+        )
+    }
+    rumdl {
+      global {
+        exclude =
+          List(
+            "**/dist/**",
+            "**/gen/**",
+            "**/generated/**",
+            "**/node_modules/**",
+            "**/target/**",
+            "**/vendor/**",
+            "**/CHANGELOG.md",
+            "**/permissions/**",
+          )
+      }
+    }
+    knip {
+      workspaces {
+        // These binaries are pinned in mise.toml, not npm.
+        ["."] { ignoreBinaries = List("buf", "hk", "oxfmt", "oxlint") }
+      }
+      ignore = List("**/src/gen/**")
+    }
+    `cargo-deny` {
+      // Every entry is an `unmaintained` advisory on a transitive dependency of Tauri, not a
+      // vulnerability, and none has an upgrade available. Drop an entry once Tauri moves off it.
+      advisories {
+        ignore {
+          new { id = "RUSTSEC-2024-0370"; reason = "proc-macro-error, via Tauri's macro crates" }
+          new { id = "RUSTSEC-2024-0411"; reason = "Tauri requires GTK3 on Linux" }
+          new { id = "RUSTSEC-2024-0412"; reason = "Tauri requires GTK3 on Linux" }
+          new { id = "RUSTSEC-2024-0413"; reason = "Tauri requires GTK3 on Linux" }
+          new { id = "RUSTSEC-2024-0415"; reason = "Tauri requires GTK3 on Linux" }
+          new { id = "RUSTSEC-2024-0416"; reason = "Tauri requires GTK3 on Linux" }
+          new { id = "RUSTSEC-2024-0418"; reason = "Tauri requires GTK3 on Linux" }
+          new { id = "RUSTSEC-2024-0419"; reason = "Tauri requires GTK3 on Linux" }
+          new { id = "RUSTSEC-2024-0420"; reason = "Tauri requires GTK3 on Linux" }
+          new { id = "RUSTSEC-2025-0075"; reason = "unic-*, via Tauri's urlpattern dependency" }
+          new { id = "RUSTSEC-2025-0080"; reason = "unic-*, via Tauri's urlpattern dependency" }
+          new { id = "RUSTSEC-2025-0081"; reason = "unic-*, via Tauri's urlpattern dependency" }
+          new { id = "RUSTSEC-2025-0098"; reason = "unic-*, via Tauri's urlpattern dependency" }
+          new { id = "RUSTSEC-2025-0100"; reason = "unic-*, via Tauri's urlpattern dependency" }
+        }
+      }
+      // Tauri's tree pulls several duplicated transitive versions that this repository does not
+      // control.
+      bans { ["multiple-versions"] = "allow" }
+      // These dependencies use licenses outside the organization's list.
+      licenses {
+        exceptions {
+          new { crate = "cssparser"; allow = List("MPL-2.0") }
+          new { crate = "cssparser-macros"; allow = List("MPL-2.0") }
+          new { crate = "dtoa-short"; allow = List("MPL-2.0") }
+          new { crate = "option-ext"; allow = List("MPL-2.0") }
+          new { crate = "selectors"; allow = List("MPL-2.0") }
+          new { crate = "target-lexicon"; allow = List("Apache-2.0 WITH LLVM-exception") }
+        }
+      }
+    }
+  }
+  ["*.proto"] {
+    buf {
+      modules { new { path = "proto" } }
+      lint {
+        // `greet.v1` is the demo service. It shares one request and response across all four
+        // method kinds so that the example exercises them against identical messages.
+        ignore_only {
+          ["RPC_REQUEST_RESPONSE_UNIQUE"] = List("proto/greet/v1/greet.proto")
+          ["RPC_REQUEST_STANDARD_NAME"] = List("proto/greet/v1/greet.proto")
+          ["RPC_RESPONSE_STANDARD_NAME"] = List("proto/greet/v1/greet.proto")
+        }
+      }
+    }
+  }
+}
