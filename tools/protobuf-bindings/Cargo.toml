@@ -11,3 +11,6 @@ publish = false
 # Pinned so the checked-in bindings regenerate byte for byte; a bump is a
 # deliberate regeneration.
 connectrpc-build = "=0.9.0"
+
+[lints]
+workspace = true

@@ -21,6 +21,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
-          install: false
-      - run: mise install rust aqua:EmbarkStudios/cargo-deny
-      - run: mise exec -- cargo-deny --locked --workspace check
+          install_args: rust toolconfig aqua:EmbarkStudios/cargo-deny
+      - name: Check and generate the ToolConfig files
+        uses: mathematic-inc/toolconfig-action@1baf7b021e8bf6f0e20737753c13af0fc93c8570 # v2026.11.0
+      - run: cargo-deny --locked --workspace check

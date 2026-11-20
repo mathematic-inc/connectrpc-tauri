@@ -11,6 +11,7 @@ import { createClient } from "@connectrpc/connect";
 import { Channel, invoke } from "@tauri-apps/api/core";
 
 import { GreetRequestSchema, GreetResponseSchema, GreetService } from "./gen/greet/v1/greet_pb.js";
+import { toAsyncIterable } from "./iterable.js";
 
 const client = createClient(GreetService, createTauriTransport());
 
@@ -24,12 +25,12 @@ const jsonClient = createClient(GreetService, createTauriTransport({ useBinaryFo
 
 /** One timed case. Times are milliseconds per operation. */
 interface Result {
-  group: string;
-  name: string;
-  median: number;
-  p95: number;
+  readonly group: string;
+  readonly name: string;
+  readonly median: number;
+  readonly p95: number;
   /** Operations per timed round, chosen by calibration. */
-  batch: number;
+  readonly batch: number;
 }
 
 /** Target duration of one timed round. */
@@ -152,12 +153,12 @@ async function rawStream(count: number, size: number): Promise<number> {
 
 /** Client streaming through the full Connect transport. */
 async function connectClientStream(name: string, count: number): Promise<void> {
-  async function* messages(): AsyncIterable<{ name: string }> {
+  function* messages() {
     for (let i = 0; i < count; i++) {
       yield { name };
     }
   }
-  await client.greetAll(messages());
+  await client.greetAll(toAsyncIterable(messages()));
 }
 
 /**
@@ -174,7 +175,7 @@ async function rawSerialInvokes(name: string, count: number): Promise<void> {
 }
 
 /** Render the results as a table, grouped, with each group's floor as 1.00x. */
-function format(results: Result[]): string {
+function format(results: readonly Result[]): string {
   const lines: string[] = ["", "ConnectRPC over Tauri IPC — benchmark", "=".repeat(64)];
 
   const groups = [...new Set(results.map((r) => r.group))];

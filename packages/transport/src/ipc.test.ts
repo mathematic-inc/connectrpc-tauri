@@ -5,7 +5,8 @@
 // streaming, and cancellation are covered without a webview.
 
 import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
-import { beforeEach, describe, expect, it } from "vitest";
+import { createAsyncIterable } from "@connectrpc/connect/protocol";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   CancelRequestSchema,
@@ -16,7 +17,7 @@ import {
 } from "./gen/connectrpc/tauri/v1/transport_pb.js";
 
 /** A call captured by the fake bridge. */
-interface FakeCall {
+interface FakeCallState {
   callId: bigint;
   url: string;
   streamingRequest: boolean;
@@ -26,7 +27,11 @@ interface FakeCall {
   send: (frame: Uint8Array) => void;
 }
 
-const calls = new Map<bigint, FakeCall>();
+type FakeCall = Readonly<Omit<FakeCallState, "chunks">> & {
+  readonly chunks: readonly Uint8Array[];
+};
+
+const calls = new Map<bigint, FakeCallState>();
 /** Resolves the next `connect_rpc` invoke; set per test to control timing. */
 let respondToStart: (call: FakeCall) => Promise<Uint8Array>;
 
@@ -37,13 +42,12 @@ beforeEach(() => {
   const callbacks = new Map<number, (payload: unknown) => void>();
   let nextCallbackId = 1;
 
-  respondToStart = async () =>
-    toBinary(ResponseHeadSchema, create(ResponseHeadSchema, { status: 200 }));
+  respondToStart = () =>
+    Promise.resolve(toBinary(ResponseHeadSchema, create(ResponseHeadSchema, { status: 200 })));
 
   // The API reads `window.__TAURI_INTERNALS__`, so the fake has to live there.
-  const globals = globalThis as Record<string, unknown>;
-  globals.window ??= globals;
-  (globals.window as Record<string, unknown>).__TAURI_INTERNALS__ = {
+  vi.stubGlobal("window", globalThis);
+  vi.stubGlobal("__TAURI_INTERNALS__", {
     transformCallback(callback: (payload: unknown) => void) {
       const id = nextCallbackId++;
       callbacks.set(id, callback);
@@ -52,15 +56,15 @@ beforeEach(() => {
     unregisterCallback(id: number) {
       callbacks.delete(id);
     },
-    async invoke(cmd: string, args: unknown) {
-      const payload = new Uint8Array(args as ArrayBuffer);
+    async invoke(cmd: string, args: ArrayBuffer) {
+      const payload = new Uint8Array(args);
 
       if (cmd.endsWith("connect_rpc")) {
         const start = fromBinary(StartRequestSchema, payload);
         if (start.channel === "") {
           // The buffered path: no channel, so the fake answers inline exactly
           // as the Rust side does.
-          const call: FakeCall = {
+          const call: FakeCallState = {
             callId: start.callId,
             url: start.url,
             streamingRequest: start.streamingRequest,
@@ -70,11 +74,12 @@ beforeEach(() => {
             send() {},
           };
           calls.set(start.callId, call);
-          return await respondToStart(call);
+          const head = await respondToStart(call);
+          return head;
         }
         const channelId = Number(start.channel.replace("__CHANNEL__:", ""));
         let index = 0;
-        const call: FakeCall = {
+        const call: FakeCallState = {
           callId: start.callId,
           url: start.url,
           streamingRequest: start.streamingRequest,
@@ -86,7 +91,8 @@ beforeEach(() => {
           },
         };
         calls.set(start.callId, call);
-        return await respondToStart(call);
+        const head = await respondToStart(call);
+        return head;
       }
 
       if (cmd.endsWith("connect_rpc_send")) {
@@ -114,7 +120,11 @@ beforeEach(() => {
 
       throw new Error(`unexpected command ${cmd}`);
     },
-  };
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 /** Encode a response frame the way the Rust side does. */
@@ -137,13 +147,15 @@ describe("tauri ipc client", () => {
     const { createTauriIpcClient } = await import("./ipc.js");
     const client = createTauriIpcClient();
 
-    respondToStart = async (call) => {
+    respondToStart = (call) => {
       // Push the whole response before the head resolves, the worst case for
       // ordering: frames must still arrive in sequence.
       call.send(messageFrame(new Uint8Array([1])));
       call.send(messageFrame(new Uint8Array([2])));
       call.send(endFrame());
-      return toBinary(ResponseHeadSchema, create(ResponseHeadSchema, { status: 200 }));
+      return Promise.resolve(
+        toBinary(ResponseHeadSchema, create(ResponseHeadSchema, { status: 200 })),
+      );
     };
 
     const response = await client({
@@ -165,18 +177,18 @@ describe("tauri ipc client", () => {
     const { createTauriIpcClient } = await import("./ipc.js");
     const client = createTauriIpcClient();
 
-    respondToStart = async (call) => {
+    respondToStart = (call) => {
       call.send(endFrame());
-      return toBinary(ResponseHeadSchema, create(ResponseHeadSchema, { status: 200 }));
+      return Promise.resolve(
+        toBinary(ResponseHeadSchema, create(ResponseHeadSchema, { status: 200 })),
+      );
     };
 
     const response = await client({
       url: "tauri://ipc/pkg.Service/Method",
       method: "POST",
       header: new Headers(),
-      body: (async function* () {
-        yield new Uint8Array([7, 8, 9]);
-      })(),
+      body: createAsyncIterable([new Uint8Array([7, 8, 9])]),
     });
     for await (const _ of response.body) {
       // drain
@@ -211,10 +223,7 @@ describe("tauri ipc client", () => {
       url: "tauri://ipc/pkg.Service/Method",
       method: "POST",
       header,
-      body: (async function* () {
-        yield new Uint8Array([1]);
-        yield new Uint8Array([2]);
-      })(),
+      body: createAsyncIterable([new Uint8Array([1]), new Uint8Array([2])]),
     });
     for await (const _ of response.body) {
       // drain
@@ -230,9 +239,11 @@ describe("tauri ipc client", () => {
     const { STREAMING_REQUEST_HEADER, createTauriIpcClient } = await import("./ipc.js");
     const client = createTauriIpcClient();
 
-    respondToStart = async (call) => {
+    respondToStart = (call) => {
       call.send(endFrame());
-      return toBinary(ResponseHeadSchema, create(ResponseHeadSchema, { status: 200 }));
+      return Promise.resolve(
+        toBinary(ResponseHeadSchema, create(ResponseHeadSchema, { status: 200 })),
+      );
     };
 
     const header = new Headers();
@@ -243,9 +254,7 @@ describe("tauri ipc client", () => {
       url: "tauri://ipc/pkg.Service/Method",
       method: "POST",
       header,
-      body: (async function* () {
-        yield new Uint8Array([1]);
-      })(),
+      body: createAsyncIterable([new Uint8Array([1])]),
     });
     for await (const _ of response.body) {
       // drain
@@ -262,66 +271,56 @@ describe("tauri ipc client", () => {
 
     // Any IPC traffic fails the test: bypassing the command router is the
     // entire point of this path.
-    respondToStart = async () => {
-      throw new Error("buffered call must not touch IPC");
-    };
+    respondToStart = () => Promise.reject(new Error("buffered call must not touch IPC"));
 
-    let fetched: { url: string; method: string; body: Uint8Array } | undefined;
-    const realFetch = globalThis.fetch;
-    globalThis.fetch = (async (url: string, init: RequestInit) => {
-      fetched = {
-        url,
-        method: init.method as string,
-        body: new Uint8Array(init.body as ArrayBuffer),
-      };
-      return new Response(new Uint8Array([4, 5, 6]), {
-        status: 200,
-        headers: { "content-type": "application/proto" },
-      });
-    }) as typeof fetch;
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(new Uint8Array([4, 5, 6]), {
+          status: 200,
+          headers: { "content-type": "application/proto" },
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
 
     const header = new Headers();
     header.set(BUFFERED_RESPONSE_HEADER, "1");
 
-    try {
-      const response = await client({
-        url: "ipc-connect://localhost/pkg.Service/Method",
-        method: "POST",
-        header,
-        body: (async function* () {
-          yield new Uint8Array([1, 2, 3]);
-        })(),
-      });
+    const response = await client({
+      url: "ipc-connect://localhost/pkg.Service/Method",
+      method: "POST",
+      header,
+      body: createAsyncIterable([new Uint8Array([1, 2, 3])]),
+    });
 
-      const received: number[] = [];
-      for await (const chunk of response.body) {
-        received.push(...chunk);
-      }
-
-      expect(response.status).toBe(200);
-      expect(received).toEqual([4, 5, 6]);
-      expect(response.header.get("content-type")).toBe("application/proto");
-      // The marker must not reach the service.
-      expect(header.has(BUFFERED_RESPONSE_HEADER)).toBe(false);
-
-      // The full URL is fetched, not just a path: the scheme handler routes on it.
-      expect(fetched?.url).toBe("ipc-connect://localhost/pkg.Service/Method");
-      expect(fetched?.method).toBe("POST");
-      expect(fetched?.body).toEqual(new Uint8Array([1, 2, 3]));
-      // No IPC call was ever registered.
-      expect(calls.size).toBe(0);
-    } finally {
-      globalThis.fetch = realFetch;
+    const received: number[] = [];
+    for await (const chunk of response.body) {
+      received.push(...chunk);
     }
+
+    expect(response.status).toBe(200);
+    expect(received).toEqual([4, 5, 6]);
+    expect(response.header.get("content-type")).toBe("application/proto");
+    // The marker must not reach the service.
+    expect(header.has(BUFFERED_RESPONSE_HEADER)).toBe(false);
+
+    // The full URL is fetched, not just a path: the scheme handler routes on it.
+    expect(fetchMock).toHaveBeenCalledWith(
+      "ipc-connect://localhost/pkg.Service/Method",
+      expect.objectContaining({ method: "POST", body: new Uint8Array([1, 2, 3]) }),
+    );
+    expect(calls.size).toBe(0);
   });
 
   it("cancels the call when the signal aborts", async () => {
     const { createTauriIpcClient } = await import("./ipc.js");
     const client = createTauriIpcClient();
 
-    respondToStart = async (call) => {
+    respondToStart = (call) => {
       call.send(messageFrame(new Uint8Array([1])));
-      return toBinary(ResponseHeadSchema, create(ResponseHeadSchema, { status: 200 }));
+      return Promise.resolve(
+        toBinary(ResponseHeadSchema, create(ResponseHeadSchema, { status: 200 })),
+      );
     };
 
     const controller = new AbortController();

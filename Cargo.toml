@@ -21,3 +21,15 @@ tauri = { version = "2.12.5", default-features = false }
 tokio = { version = "1.54.1", features = ["rt", "sync"] }
 tower = "0.5.3"
 tracing = "0.1.44"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+redundant_pub_crate = "allow"
+
+[workspace.lints.rust]
+missing_debug_implementations = "deny"
+missing_docs = "deny"
+rust_2018_idioms = { level = "deny", priority = -1 }
+unreachable_pub = "deny"

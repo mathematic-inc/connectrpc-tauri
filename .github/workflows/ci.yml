@@ -34,13 +34,18 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - uses: $/.github/actions/setup-rust-build
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          cache-on-failure: true
+      - name: Check and generate the ToolConfig files
+        uses: mathematic-inc/toolconfig-action@1baf7b021e8bf6f0e20737753c13af0fc93c8570 # v2026.11.0
       - name: Install dependencies
         # `knip`, `sherif`, `typecheck`, and `vitest` steps run through npm.
         run: npm ci
       - name: Audit dependencies
         run: npm audit --audit-level high
       - name: Run every check
-        run: hk check --all --slow
+        run: hk check --all --slow --skip-step toolconfig
 
   test:
     name: Test
@@ -54,6 +59,9 @@ jobs:
         with:
           persist-credentials: false
       - uses: $/.github/actions/setup-rust-build
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          cache-on-failure: true
       # `hk` runs Vitest, but the Rust test suite remains a separate gate.
       - name: Run tests
         run: cargo test --workspace --all-features
@@ -70,9 +78,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: $/.github/actions/setup-rust-build
-        with:
-          # rust-cache annotates Cargo's removed package staging paths as errors.
-          cache: "false"
       # The crate's README and licenses reach it by symlink, so a tarball build is
       # the only thing that proves the published crate is complete and compiles.
       - name: Verify the packaged crate builds
@@ -111,6 +116,9 @@ jobs:
         with:
           persist-credentials: false
       - uses: $/.github/actions/setup-rust-build
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          cache-on-failure: true
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: "1.90.0"

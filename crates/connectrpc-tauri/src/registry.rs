@@ -101,19 +101,16 @@ impl CallRegistry {
         let Some(call) = calls.get_mut(&id) else {
             return;
         };
-        match call.pump.take() {
-            Some(pump) => {
-                calls.remove(&id);
-                drop(calls);
-                pump.abort();
-            }
-            None => {
-                // The pump has not been attached yet. Drop the body sender so a
-                // handler parked on the request stream wakes, and let `attach`
-                // abort the task once it exists.
-                call.cancelled = true;
-                call.body = None;
-            }
+        if let Some(pump) = call.pump.take() {
+            calls.remove(&id);
+            drop(calls);
+            pump.abort();
+        } else {
+            // The pump has not been attached yet. Drop the body sender so a
+            // handler parked on the request stream wakes, and let `attach`
+            // abort the task once it exists.
+            call.cancelled = true;
+            call.body = None;
         }
     }
 
@@ -136,6 +133,8 @@ impl CallRegistry {
     /// itself is still consistent, so recover rather than cascade the panic
     /// into every subsequent RPC.
     fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<CallId, Call>> {
-        self.calls.lock().unwrap_or_else(|e| e.into_inner())
+        self.calls
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 }

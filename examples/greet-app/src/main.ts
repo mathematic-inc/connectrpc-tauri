@@ -5,6 +5,7 @@ import { createClient } from "@connectrpc/connect";
 import { invoke } from "@tauri-apps/api/core";
 
 import { GreetService } from "./gen/greet/v1/greet_pb.js";
+import { toAsyncIterable } from "./iterable.js";
 
 const client = createClient(GreetService, createTauriTransport());
 
@@ -120,7 +121,7 @@ const kinds: ReadonlyArray<{
         .map((n) => n.trim())
         .filter((n) => n.length > 0);
 
-      async function* requests() {
+      function* requests() {
         for (const name of names) {
           write(`→ ${name}`);
           yield { name };
@@ -128,7 +129,7 @@ const kinds: ReadonlyArray<{
       }
 
       // One response after the whole request stream is consumed.
-      const response = await client.greetAll(requests(), { signal });
+      const response = await client.greetAll(toAsyncIterable(requests()), { signal });
       write(response.greeting);
       return [response.greeting];
     },

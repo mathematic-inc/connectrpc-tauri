@@ -4,7 +4,7 @@
 //! path — framing, the tower service, the response pump, the registry — runs
 //! unchanged with frames collected into a queue.
 
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 use buffa::Message;
 use bytes::Bytes;
@@ -34,6 +34,11 @@ pub struct TestCall<D: Dispatcher> {
 
 impl<D: Dispatcher> TestCall<D> {
     /// Wrap a service, wiring a channel that collects frames.
+    ///
+    /// # Panics
+    ///
+    /// The channel panics when the transport sends a JSON frame or a malformed frame.
+    #[must_use]
     pub fn new(service: ConnectRpcService<D>) -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
         let channel = Channel::new(move |body: InvokeResponseBody| {
@@ -58,6 +63,10 @@ impl<D: Dispatcher> TestCall<D> {
     }
 
     /// Start a unary or server-streaming call with a complete request body.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error text of the call when it fails.
     pub async fn start(&self, url: &str, body: &[u8]) -> Result<wire::ResponseHead, String> {
         self.start_inner(url, body.to_vec(), false).await
     }
@@ -66,6 +75,14 @@ impl<D: Dispatcher> TestCall<D> {
     ///
     /// No channel is passed, so the head comes back carrying the whole body —
     /// the path every unary call takes in production.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error text of the call when it fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the head is malformed.
     pub async fn start_buffered(
         &self,
         url: &str,
@@ -78,6 +95,10 @@ impl<D: Dispatcher> TestCall<D> {
     }
 
     /// Start a server-streaming call, encoding `request` as one Connect frame.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error text of the call when it fails.
     pub async fn start_streaming_response<M: Message>(
         &self,
         url: &str,
@@ -91,6 +112,10 @@ impl<D: Dispatcher> TestCall<D> {
     /// Returns once the call is registered, without waiting for the response
     /// head: a client-streaming handler does not respond until it has read the
     /// whole request, so waiting here would deadlock against [`Self::send`].
+    ///
+    /// # Errors
+    ///
+    /// Never fails. The signature matches the other `start` methods.
     pub async fn start_streaming_request(&self, url: &str) -> Result<(), String> {
         let start = self.start_message(url, Vec::new(), true);
         let service = self.service.clone();
@@ -112,6 +137,15 @@ impl<D: Dispatcher> TestCall<D> {
     }
 
     /// Await the head of a streaming-request call started earlier.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error text of the call when it fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics when no streaming-request call is in flight, when the call task
+    /// panicked, or when the head is malformed.
     pub async fn head(&self) -> Result<wire::ResponseHead, String> {
         let handle = self
             .pending_head
@@ -168,6 +202,10 @@ impl<D: Dispatcher> TestCall<D> {
     }
 
     /// Push one request body chunk, as `connect_rpc_send` would.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the call does not accept a request body or the body is closed.
     pub async fn send(&self, chunk: &[u8]) {
         let tx = self
             .calls
@@ -179,8 +217,11 @@ impl<D: Dispatcher> TestCall<D> {
     }
 
     /// Signal end of the request body.
-    pub async fn end_request(&self) {
+    ///
+    /// The body closes at once. The returned future is already complete.
+    pub fn end_request(&self) -> impl Future<Output = ()> {
         self.calls.close_request_body(self.call_id);
+        std::future::ready(())
     }
 
     /// Cancel the call, as `connect_rpc_cancel` would.
@@ -217,6 +258,10 @@ impl<D: Dispatcher> TestCall<D> {
     }
 
     /// Decode the single message of a unary response.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the response is not one valid message.
     pub async fn expect_unary_message<M: Message + Default>(&self) -> M {
         let bytes = self.collect_message_bytes().await;
         M::decode(&mut bytes.as_slice()).expect("malformed unary response")
@@ -244,6 +289,15 @@ impl<D: Dispatcher> TestCall<D> {
             }
         }
         None
+    }
+}
+
+impl<D: Dispatcher> fmt::Debug for TestCall<D> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("TestCall")
+            .field("call_id", &self.call_id)
+            .finish_non_exhaustive()
     }
 }
 
@@ -277,12 +331,13 @@ fn enveloped<M: Message>(message: &M) -> Vec<u8> {
     let bytes = message.encode_to_vec();
     let mut framed = Vec::with_capacity(bytes.len() + 5);
     framed.push(0);
-    framed.extend_from_slice(&(bytes.len() as u32).to_be_bytes());
+    let length = u32::try_from(bytes.len()).expect("message is longer than a Connect envelope");
+    framed.extend_from_slice(&length.to_be_bytes());
     framed.extend_from_slice(&bytes);
     framed
 }
 
 /// Whether a body looks enveloped, used only to pick a test content type.
-fn is_enveloped(body: &[u8]) -> bool {
+const fn is_enveloped(body: &[u8]) -> bool {
     body.len() >= 5 && body[0] & 0xfc == 0
 }

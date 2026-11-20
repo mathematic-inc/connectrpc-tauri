@@ -119,13 +119,27 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
-        with:
-          tag_name: ${{ needs.meta.outputs.tag }}
-          name: ${{ needs.meta.outputs.tag }}
-          generate_release_notes: true
-          prerelease: ${{ needs.meta.outputs.is_prerelease == 'true' }}
-          make_latest: ${{ needs.meta.outputs.target == 'crate' && needs.meta.outputs.is_prerelease == 'false' }}
+      - name: Create or update the GitHub release
+        shell: bash
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.meta.outputs.tag }}
+          IS_PRERELEASE: ${{ needs.meta.outputs.is_prerelease }}
+          TARGET: ${{ needs.meta.outputs.target }}
+        run: |
+          set -euo pipefail
+          latest=false
+          if [[ "$TARGET" == crate && "$IS_PRERELEASE" == false ]]; then
+            latest=true
+          fi
+          # A re-run finds the release that the first run made.
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TAG" --prerelease="$IS_PRERELEASE" --latest="$latest"
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes --verify-tag \
+              --prerelease="$IS_PRERELEASE" --latest="$latest"
+          fi
 
   publish-crate:
     name: Publish to crates.io

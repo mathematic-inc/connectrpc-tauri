@@ -3,7 +3,7 @@ description: Rust toolchain, protoc, and the system webview headers `wry` links 
 
 inputs:
   cache:
-    description: Restore the cargo cache. Off for release jobs, which must not
+    description: Restore the mise cache. Off for release jobs, which must not
       trust a cache that a PR build could have poisoned.
     required: false
     default: "true"
@@ -21,7 +21,5 @@ runs:
     # and exports RUSTUP_TOOLCHAIN. It is the same toolchain `hk` runs locally,
     # so CI and pre-commit cannot disagree about fmt or lint results.
     - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
-    - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-      if: inputs.cache == 'true'
       with:
-        cache-on-failure: true
+        cache: ${{ inputs.cache }}
