@@ -96,7 +96,7 @@ sections {
     knip {
       workspaces {
         // These binaries are pinned in mise.toml, not npm.
-        ["."] { ignoreBinaries = List("buf", "hk", "oxfmt", "oxlint") }
+        ["."] { ignoreBinaries = List("buf", "hk", "oxfmt", "oxlint", "toolconfig") }
       }
       ignore = List("**/src/gen/**")
     }
