@@ -16,8 +16,7 @@ env:
 
 jobs:
   # `hk check` is the single source of truth for lint and format, so CI and the
-  # pre-commit hook cannot disagree. It covers rustfmt, clippy, cargo-deny, the
-  # workflow linters, typecheck, vitest, and protobuf-binding drift.
+  # pre-commit hook cannot disagree.
   check:
     name: Check
     runs-on: ubuntu-latest

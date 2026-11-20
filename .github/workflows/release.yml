@@ -39,8 +39,6 @@ jobs:
           set -euo pipefail
 
           TAG="${GITHUB_REF_NAME}"
-          # release-please emits unscoped `v<version>` tags for the crate and
-          # `transport-v<version>` for the npm package.
           if [[ "$TAG" =~ ^v[0-9] ]]; then
             TARGET="crate"
             VERSION="${TAG#v}"
@@ -198,7 +196,7 @@ jobs:
     environment: release
     permissions:
       contents: read
-      # Trusted publishing again, which also gets provenance for free.
+      # Trusted publishing also gets provenance for free.
       id-token: write
     steps:
       - name: Check out repository
