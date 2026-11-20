@@ -4,14 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-permissions:
-  contents: read
+permissions: {}
 
 env:
   CARGO_TERM_COLOR: always
@@ -20,107 +18,146 @@ jobs:
   # `hk check` is the single source of truth for lint and format, so CI and the
   # pre-commit hook cannot disagree. It covers rustfmt, clippy, cargo-deny, the
   # workflow linters, typecheck, vitest, and protobuf-binding drift.
-  basics:
-    name: Basics
+  check:
+    name: Check
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # `gitleaks` scans history with `--log-opts=--all`, which a shallow
           # clone would silently narrow to one commit.
           fetch-depth: 0
           persist-credentials: false
-      - uses: $/.github/actions/setup-rust-build
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Install Rust build tools
+        uses: $/.github/actions/install-rust-build-tools
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           cache-on-failure: true
-      - name: Check and generate the ToolConfig files
+      - name: Check and generate ToolConfig files
         uses: mathematic-inc/toolconfig-action@1baf7b021e8bf6f0e20737753c13af0fc93c8570 # v2026.11.0
       - name: Install dependencies
         # `knip`, `sherif`, `typecheck`, and `vitest` steps run through npm.
         run: npm ci
       - name: Audit dependencies
         run: npm audit --audit-level high
-      - name: Run every check
+      - name: Run checks
         run: hk check --all --slow --skip-step toolconfig
 
   test:
     name: Test
-    needs: basics
+    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-rust-build
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Install Rust build tools
+        uses: $/.github/actions/install-rust-build-tools
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           cache-on-failure: true
       # `hk` runs Vitest, but the Rust test suite remains a separate gate.
       - name: Run tests
         run: cargo test --workspace --all-features
 
-  package:
+  package-crate:
     name: Package crate
-    needs: basics
+    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-rust-build
+      - name: Install Rust build tools
+        uses: $/.github/actions/install-rust-build-tools
       # The crate's README and licenses reach it by symlink, so a tarball build is
       # the only thing that proves the published crate is complete and compiles.
-      - name: Verify the packaged crate builds
+      - name: Verify packaged crate builds
         run: cargo package --locked -p connectrpc-tauri
 
   # Proves the npm package builds from a clean checkout, which `hk` does not do.
   build-package:
     name: Build package
-    needs: basics
+    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Install Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
           cache: npm
-      - run: npm ci
-      - run: npm run build
+      - name: Install dependencies
+        run: npm ci
+      - name: Build package
+        run: npm run build
       - name: Verify npm package
         run: npm pack --dry-run --workspace @connectrpc-tauri/transport
 
-  msrv:
-    name: Rust 1.90.0
-    needs: basics
+  check-msrv:
+    name: Check MSRV
+    needs: check
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-rust-build
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Install Rust build tools
+        uses: $/.github/actions/install-rust-build-tools
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           cache-on-failure: true
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - name: Install Rust 1.90.0
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: "1.90.0"
       - name: Check minimum supported Rust version
         run: rustup run 1.90.0 cargo check --locked --workspace
+
+  required:
+    name: required
+    if: always()
+    needs:
+      - check
+      - test
+      - package-crate
+      - build-package
+      - check-msrv
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Check that every other job passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
+          if ! jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<< "$NEEDS" > /dev/null; then
+            echo "::error::A job failed or was cancelled."
+            exit 1
+          fi
