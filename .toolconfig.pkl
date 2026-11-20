@@ -101,24 +101,11 @@ sections {
       ignore = List("**/src/gen/**")
     }
     `cargo-deny` {
-      // Every entry is an `unmaintained` advisory on a transitive dependency of Tauri, not a
-      // vulnerability, and none has an upgrade available. Drop an entry once Tauri moves off it.
+      // This is an `unmaintained` advisory on a transitive dependency of Tauri, not a
+      // vulnerability, and it has no upgrade available. Drop the entry once Tauri moves off it.
       advisories {
         ignore {
           new { id = "RUSTSEC-2024-0370"; reason = "proc-macro-error, via Tauri's macro crates" }
-          new { id = "RUSTSEC-2024-0411"; reason = "Tauri requires GTK3 on Linux" }
-          new { id = "RUSTSEC-2024-0412"; reason = "Tauri requires GTK3 on Linux" }
-          new { id = "RUSTSEC-2024-0413"; reason = "Tauri requires GTK3 on Linux" }
-          new { id = "RUSTSEC-2024-0415"; reason = "Tauri requires GTK3 on Linux" }
-          new { id = "RUSTSEC-2024-0416"; reason = "Tauri requires GTK3 on Linux" }
-          new { id = "RUSTSEC-2024-0418"; reason = "Tauri requires GTK3 on Linux" }
-          new { id = "RUSTSEC-2024-0419"; reason = "Tauri requires GTK3 on Linux" }
-          new { id = "RUSTSEC-2024-0420"; reason = "Tauri requires GTK3 on Linux" }
-          new { id = "RUSTSEC-2025-0075"; reason = "unic-*, via Tauri's urlpattern dependency" }
-          new { id = "RUSTSEC-2025-0080"; reason = "unic-*, via Tauri's urlpattern dependency" }
-          new { id = "RUSTSEC-2025-0081"; reason = "unic-*, via Tauri's urlpattern dependency" }
-          new { id = "RUSTSEC-2025-0098"; reason = "unic-*, via Tauri's urlpattern dependency" }
-          new { id = "RUSTSEC-2025-0100"; reason = "unic-*, via Tauri's urlpattern dependency" }
         }
       }
       // Tauri's tree pulls several duplicated transitive versions that this repository does not
