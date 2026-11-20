@@ -124,7 +124,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Create or update the GitHub release
+      - name: Create or update GitHub release
         shell: bash
         env:
           GH_REPO: ${{ github.repository }}
