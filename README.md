@@ -120,22 +120,22 @@ channel provides for free.
 
 ## Streaming and backpressure
 
-Streaming is incremental in both directions, not buffered. The request body is
-an mpsc-backed `http_body::Body` that `connect_rpc_send` feeds, so a webview
-writing faster than the handler reads is held at `CHANNEL_DEPTH` chunks — the
-pending `invoke` is the backpressure signal.
+Streaming is incremental in both directions, not buffered.
+`connect_rpc_send` feeds the request body through a bounded channel, so a
+webview that writes faster than the handler reads is held at `CHANNEL_DEPTH`
+chunks — the pending `invoke` is the backpressure signal.
 
 On the webview side that signal is a send in flight. Messages produced while
 one is outstanding are coalesced into the next send rather than each taking a
 round trip, and a producer that outruns the hop by more than
 `MAX_PENDING_BYTES` waits for it instead of buffering the stream.
 
-Everything on the IPC path is async: all three commands are `async fn`, the
-service is driven on its own task so the response head can return before the
-body completes, and the response pump yields via the cooperative-scheduling
-budget so an in-memory stream cannot monopolise a worker or outrun a cancel.
-The one synchronous lock guards a hash map and is never held across an await,
-which `#![deny(clippy::await_holding_lock)]` enforces.
+Everything on the IPC path is async. All three commands are `async fn`. The
+service runs on its own task, so the response head can return before the body
+completes. The response pump yields through the cooperative-scheduling budget,
+so an in-memory stream cannot monopolise a worker or outrun a cancel. The one
+synchronous lock guards a `HashMap` and is never held across an await, which
+Clippy's `await_holding_lock` lint enforces.
 
 ## Layout
 
@@ -172,10 +172,10 @@ npm run build --workspace greet-app
 GREET_APP_SELFTEST=1 cargo run --release -p greet-app --features custom-protocol
 ```
 
-The first two stub the IPC bridge on their own side. The third is the one that
-proves Tauri's real commands and channels carry the protocol: it runs all four
-method kinds plus a mid-stream cancel in a real webview, asserts the greetings
-each RPC returned, prints a transcript, and exits with a status.
+The first two stub the IPC bridge on their own side. The third proves that
+Tauri's real commands and channels carry the protocol. It runs all four method
+kinds and a mid-stream cancel in a real webview, asserts the greetings that each
+RPC returned, prints a transcript and exits with a status.
 
 ## Benchmarking
 
@@ -193,26 +193,26 @@ that is where the cost is — the expensive part of Tauri IPC is crossing the
 webview boundary, which a Rust-only benchmark never pays.
 
 Times are batched rather than measured per call: WebKit clamps
-`performance.now()` to 1ms, which is coarser than an entire RPC.
+`performance.now()` to 1 millisecond, which is coarser than an entire RPC.
 
-On an M-series mac, release build:
+On an M-series mac, release build, in milliseconds per operation:
 
 | Case                          | This transport | Best raw baseline |
 | ----------------------------- | -------------- | ----------------- |
-| unary, 16-byte request        | 0.203ms        | 0.195ms (1.04x)   |
-| unary, 4KiB request           | 0.227ms        | 0.223ms (1.02x)   |
-| unary, 64KiB request          | 0.363ms        | 0.340ms (1.07x)   |
-| server stream, 100 x 16 bytes | 0.797ms        | 1.453ms (0.55x)   |
-| server stream, 100 x 4KiB     | 2.938ms        | 7.875ms (0.37x)   |
-| client stream, 100 x 16 bytes | 1.156ms        | 19.250ms (0.06x)  |
-| client stream, 100 x 4KiB     | 2.250ms        | 21.500ms (0.10x)  |
+| unary, 16-byte request        | 0.203          | 0.195 (1.04x)     |
+| unary, 4KiB request           | 0.227          | 0.223 (1.02x)     |
+| unary, 64KiB request          | 0.363          | 0.340 (1.07x)     |
+| server stream, 100 x 16 bytes | 0.797          | 1.453 (0.55x)     |
+| server stream, 100 x 4KiB     | 2.938          | 7.875 (0.37x)     |
+| client stream, 100 x 16 bytes | 1.156          | 19.250 (0.06x)    |
+| client stream, 100 x 4KiB     | 2.250          | 21.500 (0.10x)    |
 
 The raw baseline above is a protobuf `invoke`, the fastest way to move the
 same bytes by hand — one per message for the client-streaming rows, which is
 what a hand-written client sending a sequence would do.
 
-A unary call is within a few percent of a hand-written `invoke` — it no longer
-goes through Tauri's IPC at all. Unary requests are a plain `fetch` against the
+Unary calls are within a few percent of a hand-written `invoke` — they no longer
+go through Tauri's IPC at all. Unary requests are a plain `fetch` against the
 `ipc-connect://` scheme the plugin registers, which skips the command router,
 the ACL check, and the protobuf envelope. See
 [Unary skips IPC entirely](#unary-skips-ipc-entirely).
@@ -226,28 +226,29 @@ carrying many envelopes, and requests are coalesced on the way out. See
 
 Tauri's IPC payload is _either_ raw bytes or JSON, never both, and a JSON
 payload encodes bytes as one JSON number per byte. Sending Connect's bytes as
-JSON command arguments costs, at 64KiB:
+JSON command arguments costs, at 64KiB, in milliseconds:
 
-| Payload carried as     | 64KiB request |
-| ---------------------- | ------------- |
-| raw bytes (what we do) | 0.375ms       |
-| bytes inside JSON args | 5.063ms       |
+| Payload carried as          | 64KiB request |
+| --------------------------- | ------------- |
+| raw bytes (what we do)      | 0.375         |
+| bytes inside JSON arguments | 5.063         |
 
 That is 13x, and it grows with size: the same comparison is 1.04x at 16 bytes
 and 2.4x at 4KiB, because the blow-up is in the encoding, not a fixed cost.
-A JSON `invoke` moving a plain _string_ looks fast (0.375ms at 64KiB) — but a
-Connect message is bytes, and that is the row that applies.
+A JSON `invoke` moving a plain _string_ looks fast (0.375 milliseconds at
+64KiB) — but a Connect message is bytes, and that is the row that applies.
 
 ### Binary vs JSON Connect codec
 
 A separate question from the one above: `useBinaryFormat` picks how a _message_
 is encoded, while the IPC payload stays raw bytes either way. It is close to
-free at these sizes, and binary stays the default:
+free at these sizes, and binary stays the default. The values are
+milliseconds per call:
 
-| Codec  | 16B     | 4KiB    | 64KiB   |
-| ------ | ------- | ------- | ------- |
-| binary | 0.258ms | 0.313ms | 0.430ms |
-| JSON   | 0.258ms | 0.309ms | 0.461ms |
+| Codec  | 16B   | 4KiB  | 64KiB |
+| ------ | ----- | ----- | ----- |
+| binary | 0.258 | 0.313 | 0.430 |
+| JSON   | 0.258 | 0.309 | 0.461 |
 
 JSON is worth it only for readable traffic in a devtools or proxy view; on an
 in-process hop there is no such view to gain, and it costs re-encoding on
@@ -265,10 +266,10 @@ loop pays one crossing each.
 
 Requests need help, because Connect hands the client one message at a time.
 Awaiting an `invoke` per message made a client-streaming call cost a full round
-trip per message — 100 messages took ~19ms, exactly tracking a hand-written
-loop of serial invokes. The pump now coalesces whatever the producer has
-_already_ coalesced into one send, which takes the same 100 messages to
-~1.2ms.
+trip for each message — 100 messages took about 19 milliseconds, exactly
+tracking a hand-written loop of serial invokes. The pump now coalesces whatever
+the producer has _already_ coalesced into one send, which takes the same 100
+messages to about 1.2 milliseconds.
 
 "Already produced" is the entire subtlety. The pump never waits for a chunk
 that has not been generated, so a message whose reply the client is waiting on
@@ -280,7 +281,7 @@ request depends on the last response.
 
 Tauri's IPC is a command router: a request crosses the webview boundary as an
 `InvokeBody`, is matched against a command name, checked against the ACL, then
-answered. A unary Connect call needs none of that. It is already an HTTP
+answered. Unary Connect calls need none of that. It is already an HTTP
 request against a `tower::Service`, and the webview already speaks HTTP.
 
 So the plugin registers its own URI scheme, `ipc-connect://`, and unary calls
@@ -291,15 +292,16 @@ already registered before installing its own handler, so this coexists with
 Skipping the command router also skips what keeps other pages out of it. Every
 frame in the webview can reach a custom scheme, including an iframe at another
 origin: a remote page, or content the app serves from a scheme of its own.
-Tauri's IPC refuses those with an invoke key it gives only the main frame. The
-scheme has no key, so it checks the request's `Origin`, which a page can't set:
-it answers only the app's own pages (`tauri://localhost`, `http://tauri.localhost`
-on Windows and Android, or the `devUrl` during development), and names that
-origin, not `*`, as the only one that may read the response. Under `serve_to`
-it also checks the webview's label, which Tauri sets and no page can change:
-another webview that loads the app's pages sends their `Origin` too.
+Tauri's IPC refuses those with an invoke key it gives only to the top-level
+frame. The scheme has no key, so it checks the `Origin` of the request, which a
+page cannot set. It answers only the pages of the app (`tauri://localhost`,
+`http://tauri.localhost` on Windows and Android, or the `devUrl` during
+development). It names that origin, not `*`, as the only one that may read the
+response. Under `serve_to` it also checks the webview's label, which Tauri sets
+and no page can change: another webview that loads the app's pages sends their
+`Origin` too.
 
-What that removes from a unary call: the protobuf envelope and its
+What that removes from unary calls: the protobuf envelope and its
 encode/decode, the command-name dispatch, the ACL permission lookup, the call
 registry, and the channel. What is left is close to an identity mapping —
 `http::Request` in, service, `http::Response` out — which is why unary now
@@ -330,7 +332,7 @@ the cargo profile.
 - Webview → Rust only. Rust-initiated calls into webview-hosted services are
   out of scope.
 - Compression is off by default. It spends CPU to shrink bytes on an in-process
-  hop that never touches a network; the knob is exposed on both sides.
+  call path that never touches a network; the knob is exposed on both sides.
 - Android's IPC lacks `InvokeBody::Raw` and falls back to JSON number arrays. A
   base64 fallback is not implemented. This affects streaming only; unary goes
   over the `ipc-connect://` scheme and is unaffected.
