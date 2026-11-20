@@ -1,19 +1,20 @@
 // The Tauri IPC side of the transport: one `UniversalClientFn` that speaks
 // commands and channels instead of HTTP.
 
-import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
+import { type MessageInitShape, create, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { Code, ConnectError } from "@connectrpc/connect";
 import type {
   UniversalClientFn,
   UniversalClientRequest,
   UniversalClientResponse,
 } from "@connectrpc/connect/protocol";
-import { createWritableIterable } from "@connectrpc/connect/protocol";
+import { createAsyncIterable, createWritableIterable } from "@connectrpc/connect/protocol";
 import { Channel, invoke } from "@tauri-apps/api/core";
 
 import {
   CancelRequestSchema,
   type Header,
+  type HeaderSchema,
   ResponseFrameSchema,
   ResponseHeadSchema,
   SendRequestSchema,
@@ -29,6 +30,9 @@ import {
 const START = "plugin:connectrpc-tauri|connect_rpc";
 const SEND = "plugin:connectrpc-tauri|connect_rpc_send";
 const CANCEL = "plugin:connectrpc-tauri|connect_rpc_cancel";
+
+/** The fields of a header that the transport reads. */
+type WireHeader = Readonly<Pick<Header, "name" | "value">>;
 
 /** Monotonic per-webview call id. */
 let nextCallId = 1n;
@@ -83,7 +87,7 @@ export function createTauriIpcClient(): UniversalClientFn {
     request.header.delete(BUFFERED_RESPONSE_HEADER);
 
     if (buffered) {
-      return await unaryCall(request);
+      return unaryCall(request);
     }
 
     // The response body is written from the channel callback and read by
@@ -132,6 +136,9 @@ export function createTauriIpcClient(): UniversalClientFn {
           // Connect carries trailers in-band (EndStreamResponse for streams,
           // `trailer-` headers for unary), so HTTP trailers are informational
           // here and the protocol layer never reads them.
+          break;
+        case undefined:
+          // A frame that sets no case carries nothing.
           break;
         case "end":
           // Close only after queued writes land, or the reader loses the tail
@@ -203,24 +210,28 @@ async function unaryCall(request: UniversalClientRequest): Promise<UniversalClie
   const response = await fetch(request.url, {
     method: request.method,
     headers: request.header,
-    // `BodyInit` accepts a `BufferSource`, but the DOM lib types it as an
-    // `ArrayBufferView<ArrayBuffer>`, which a `Uint8Array` over a generic
-    // `ArrayBufferLike` does not satisfy. The buffer is a plain one at runtime.
-    ...(body === undefined ? {} : { body: body as BodyInit }),
+    ...(body === undefined
+      ? {}
+      : { body: isArrayBufferBacked(body) ? body : new Uint8Array(body) }),
     ...(request.signal === undefined ? {} : { signal: request.signal }),
   });
 
   return {
     status: response.status,
     header: response.headers,
-    body: once(new Uint8Array(await response.arrayBuffer())),
+    body: createAsyncIterable([new Uint8Array(await response.arrayBuffer())]),
     trailer: new Headers(),
   };
 }
 
-/** Yield a body that is already complete. */
-async function* once(bytes: Uint8Array): AsyncIterable<Uint8Array> {
-  yield bytes;
+/**
+ * Whether the bytes sit in a plain `ArrayBuffer`, which `fetch` accepts.
+ *
+ * The DOM types a `BodyInit` view as `Uint8Array<ArrayBuffer>`, while Connect
+ * types its bytes as a `Uint8Array` over any `ArrayBufferLike`.
+ */
+function isArrayBufferBacked(bytes: Uint8Array): bytes is Uint8Array<ArrayBuffer> {
+  return bytes.buffer instanceof ArrayBuffer;
 }
 
 /**
@@ -339,7 +350,7 @@ async function pumpRequestBody(
 }
 
 /** Join buffered chunks into the single body slice one send carries. */
-function concat(chunks: Uint8Array[], total: number): Uint8Array {
+function concat(chunks: readonly Uint8Array[], total: number): Uint8Array {
   const out = new Uint8Array(total);
   let offset = 0;
   for (const chunk of chunks) {
@@ -350,15 +361,15 @@ function concat(chunks: Uint8Array[], total: number): Uint8Array {
 }
 
 /** Flatten `Headers` into repeated wire entries, preserving multi-values. */
-function toWireHeaders(header: Headers): Header[] {
-  const out: Header[] = [];
+function toWireHeaders(header: Headers): MessageInitShape<typeof HeaderSchema>[] {
+  const out: MessageInitShape<typeof HeaderSchema>[] = [];
   header.forEach((value, name) => {
-    out.push({ name, value } as Header);
+    out.push({ name, value });
   });
   return out;
 }
 
-function fromWireHeaders(headers: Header[]): Headers {
+function fromWireHeaders(headers: readonly WireHeader[]): Headers {
   const out = new Headers();
   for (const { name, value } of headers) {
     out.append(name, value);

@@ -36,6 +36,48 @@ sections {
           "**/permissions/**",
         )
     }
+    oxlint {
+      rules {
+        ["typescript/prefer-readonly-parameter-types"] {
+          "deny"
+          new {
+            allow =
+              List(
+                // The DOM and the ECMAScript library have no readonly form of these types.
+                new Dynamic {
+                  from = "lib"
+                  name =
+                    List(
+                      "AbortSignal",
+                      "ArrayBuffer",
+                      "AsyncIterable",
+                      "Headers",
+                      "Iterable",
+                      "Uint8Array",
+                    )
+                },
+                // Connect's request and response types have mutable headers and streams.
+                new Dynamic {
+                  from = "package"
+                  package = "@connectrpc/connect"
+                  name =
+                    List(
+                      "StreamRequest",
+                      "UnaryRequest",
+                      "UniversalClientRequest",
+                    )
+                },
+                // The `registry` of the Protobuf-ES options is an interface with methods.
+                new Dynamic {
+                  from = "package"
+                  package = "@bufbuild/protobuf"
+                  name = List("Registry")
+                },
+              )
+          }
+        }
+      }
+    }
     rumdl {
       global {
         exclude =

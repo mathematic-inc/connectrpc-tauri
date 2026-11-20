@@ -40,28 +40,28 @@ export interface TauriTransportOptions {
    * gain from JSON, and binary avoids re-encoding on a hop that never leaves
    * the process.
    */
-  useBinaryFormat?: boolean;
+  readonly useBinaryFormat?: boolean;
 
   /** Interceptors applied to every call through this transport. */
-  interceptors?: Interceptor[];
+  readonly interceptors?: readonly Interceptor[];
 
   /** Options for the JSON format. */
-  jsonOptions?: Partial<JsonReadOptions & JsonWriteOptions>;
+  readonly jsonOptions?: Readonly<Partial<JsonReadOptions & JsonWriteOptions>>;
 
   /** Options for the binary wire format. */
-  binaryOptions?: Partial<BinaryReadOptions & BinaryWriteOptions>;
+  readonly binaryOptions?: Readonly<Partial<BinaryReadOptions & BinaryWriteOptions>>;
 
   /** Timeout in milliseconds applied to all requests. */
-  defaultTimeoutMs?: number;
+  readonly defaultTimeoutMs?: number;
 
   /**
    * Reject responses whose individual messages exceed this many bytes.
    * Defaults to Connect's ~4GiB maximum.
    */
-  readMaxBytes?: number;
+  readonly readMaxBytes?: number;
 
   /** Reject requests whose messages exceed this many bytes. */
-  writeMaxBytes?: number;
+  readonly writeMaxBytes?: number;
 }
 
 /**
