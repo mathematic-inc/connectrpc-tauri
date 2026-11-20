@@ -15,6 +15,11 @@ local nodeFiles =
 local slow = List("slow")
 
 steps {
+  // The example is the only file with root-relative links.
+  ["lychee"] {
+    check = "lychee --no-progress --root-dir examples/greet-app {{ files }}"
+    workspace_indicator = "package.json"
+  }
   // The base sets no workspace indicator for this step, so its `{{workspace}}` directory is undefined.
   ["cargo-deny"] { dir = "{{root}}" }
   ["protobuf-bindings"] = new Step {
