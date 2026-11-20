@@ -7,17 +7,16 @@ on:
       - "transport-v*" # the npm package, @connectrpc-tauri/transport
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: read
+permissions: {}
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  meta:
+  validate-release:
     name: Validate release
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -29,17 +28,17 @@ jobs:
       version: ${{ steps.parse.outputs.version }}
       is_prerelease: ${{ steps.parse.outputs.is_prerelease }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - id: parse
+      - name: Parse and validate tag
+        id: parse
         shell: bash
         run: |
           set -euo pipefail
 
           TAG="${GITHUB_REF_NAME}"
-          # release-please emits unscoped `v<version>` tags for the crate and
-          # `transport-v<version>` for the npm package.
           if [[ "$TAG" =~ ^v[0-9] ]]; then
             TARGET="crate"
             VERSION="${TAG#v}"
@@ -75,32 +74,35 @@ jobs:
 
   build-and-test:
     name: Build and test
-    needs: meta
+    needs: validate-release
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: $/.github/actions/setup-rust-build
-        if: needs.meta.outputs.target == 'crate'
+      - name: Install Rust build tools
+        if: needs.validate-release.outputs.target == 'crate'
+        uses: $/.github/actions/install-rust-build-tools
         with:
           cache: "false"
       - name: Test crate
-        if: needs.meta.outputs.target == 'crate'
+        if: needs.validate-release.outputs.target == 'crate'
         run: cargo test --locked --all-features -p connectrpc-tauri
 
       # Caching is off in release jobs, so there is no cache to poison.
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: needs.meta.outputs.target == 'npm'
+      - name: Install Node.js
+        if: needs.validate-release.outputs.target == 'npm'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           package-manager-cache: false
           node-version-file: .node-version
       - name: Test package
-        if: needs.meta.outputs.target == 'npm'
+        if: needs.validate-release.outputs.target == 'npm'
         run: |
           npm ci
           npm test
@@ -108,25 +110,26 @@ jobs:
 
   create-release:
     name: Create GitHub release
-    needs: [meta, build-and-test]
+    needs: [validate-release, build-and-test]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: release
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Create or update the GitHub release
+      - name: Create or update GitHub release
         shell: bash
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.meta.outputs.tag }}
-          IS_PRERELEASE: ${{ needs.meta.outputs.is_prerelease }}
-          TARGET: ${{ needs.meta.outputs.target }}
+          TAG: ${{ needs.validate-release.outputs.tag }}
+          IS_PRERELEASE: ${{ needs.validate-release.outputs.is_prerelease }}
+          TARGET: ${{ needs.validate-release.outputs.target }}
         run: |
           set -euo pipefail
           latest=false
@@ -143,8 +146,8 @@ jobs:
 
   publish-crate:
     name: Publish to crates.io
-    needs: [meta, create-release]
-    if: needs.meta.outputs.target == 'crate'
+    needs: [validate-release, create-release]
+    if: needs.validate-release.outputs.target == 'crate'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: release
@@ -154,10 +157,12 @@ jobs:
       # long-lived registry secret lives in this repo.
       id-token: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: $/.github/actions/setup-rust-build
+      - name: Install Rust build tools
+        uses: $/.github/actions/install-rust-build-tools
         with:
           cache: "false"
       - name: Authenticate with crates.io
@@ -169,7 +174,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates-io-auth.outputs.token }}
           # Via the environment, not string-interpolated into the script: the
           # version comes from a tag name, which is attacker-controllable.
-          VERSION: ${{ needs.meta.outputs.version }}
+          VERSION: ${{ needs.validate-release.outputs.version }}
         run: |
           set -euo pipefail
           # A re-run of an already-published version is a no-op, not a failure.
@@ -184,26 +189,30 @@ jobs:
 
   publish-npm:
     name: Publish to npm
-    needs: [meta, create-release]
-    if: needs.meta.outputs.target == 'npm'
+    needs: [validate-release, create-release]
+    if: needs.validate-release.outputs.target == 'npm'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: release
     permissions:
       contents: read
-      # Trusted publishing again, which also gets provenance for free.
+      # Trusted publishing also gets provenance for free.
       id-token: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # Caching is off in release jobs, so there is no cache to poison.
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Install Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           package-manager-cache: false
           node-version-file: .node-version
           registry-url: https://registry.npmjs.org
-      - run: npm ci
-      - run: npm run build
+      - name: Install dependencies
+        run: npm ci
+      - name: Build package
+        run: npm run build
       - name: Publish package
         run: npm publish --workspace @connectrpc-tauri/transport
