@@ -34,13 +34,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - uses: $/.github/actions/setup-rust-build
+      # The action runs ToolConfig, so the settings files exist before any tool runs.
+      - name: Check and generate the ToolConfig files
+        uses: mathematic-inc/toolconfig-action@1baf7b021e8bf6f0e20737753c13af0fc93c8570 # v2026.11.0
       - name: Install dependencies
         # `knip`, `sherif`, `typecheck`, and `vitest` steps run through npm.
         run: npm ci
       - name: Audit dependencies
         run: npm audit --audit-level high
       - name: Run every check
-        run: hk check --all --slow
+        run: hk check --all --slow --skip-step toolconfig
 
   test:
     name: Test
