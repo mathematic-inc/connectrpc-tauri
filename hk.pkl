@@ -20,8 +20,6 @@ steps {
     check = "lychee --no-progress --root-dir examples/greet-app {{ files }}"
     workspace_indicator = "package.json"
   }
-  // The base sets no workspace indicator for this step, so `{{workspace}}` is undefined.
-  ["cargo-deny"] { dir = "{{root}}" }
   ["protobuf-bindings"] = new Step {
     glob = List("proto/**", "**/buf.gen.yaml", "**/src/gen/**")
     check =
